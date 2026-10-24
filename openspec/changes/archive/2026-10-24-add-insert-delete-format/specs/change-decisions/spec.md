@@ -64,9 +64,13 @@ A decision SHALL name the mark by its id. The decision SHALL be refused, and the
 - **AND** the note does not change
 
 ### Requirement: Decision result
-A successful decision SHALL report the new note text, and the decided mark as it was before the decision: id, kind, content, author, date, its position, and whether it was accepted or rejected. It SHALL also report the position and length of the text that replaced the mark.
+A successful decision SHALL report the new note text, and the decided mark as it was before the decision: id, kind, content, author, date, its position, and whether it was accepted or rejected. It SHALL also report the change to the note text: the start and end of the replaced range in the text before the decision, and the inserted text.
 
 #### Scenario: Result of an accepted insertion
 - **WHEN** the user accepts the insertion `a1` with content `big ` by `Claude`
 - **THEN** the result has the id `a1`, kind insertion, content `big `, author `Claude`, the decision accept, and the new text
-- **AND** the result says that the mark was replaced by 4 characters of text at the start position of the mark
+- **AND** the result has one change from the start to the end of the mark, with the inserted text `big `
+
+#### Scenario: Result of a rejected insertion
+- **WHEN** the user rejects the insertion `a1`
+- **THEN** the result has the decision reject and one change from the start to the end of the mark, with an empty inserted text

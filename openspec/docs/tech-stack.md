@@ -19,7 +19,7 @@ Scope: Claude Code only. Codex is deferred, because we have no access to it. The
 | Hub ⇄ bridge | WebSocket. `ws` in the plugin (server). Node's built-in `WebSocket` in the bridge (client). | Node has no built-in WebSocket server, so the plugin needs `ws`. The bridge needs no extra package. |
 | Schemas | zod, in `packages/protocol` | One contract for both ends. The MCP SDK also uses zod. |
 | CLI arguments | `node:util` `parseArgs` | No package needed for a few subcommands. |
-| Tests | vitest. jsdom for the CodeMirror 6 tests. | Fast, TypeScript without a build. |
+| Tests | vitest. jsdom for the CodeMirror 6 tests. `fast-check` (^4.10.2, in the catalog) for property tests in `packages/format`. | Fast, TypeScript without a build. Property tests find edge cases of the parser (round trip) that example tests miss. |
 | Lint and format | Biome | One tool instead of ESLint + Prettier. Add `eslint-plugin-obsidianmd` only if we publish to the Obsidian community store. |
 
 ## Repo layout

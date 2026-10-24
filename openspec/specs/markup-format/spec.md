@@ -1,10 +1,10 @@
-# Spec Delta
+# markup-format Specification
 
 ## Purpose
 
 The markup format defines how MD-Coeditor stores tracked changes inside a Markdown note: the CriticMarkup marks with their attributes, the zones where marks are not allowed, and how a suggestion becomes marks. The note stays the source of truth and is readable without the plugin.
 
-## ADDED Requirements
+## Requirements
 
 ### Requirement: Recognize the five mark kinds
 The format SHALL recognize these marks: insertion `{++text++}`, deletion `{--text--}`, substitution `{~~old~>new~~}`, highlight `{==text==}` and comment `{>>text<<}`. A mark ends at the first closing sequence of its kind. A mark SHALL NOT contain a blank line. An opening sequence without a valid end is plain text.
@@ -80,6 +80,11 @@ The format SHALL find these protected zones: YAML frontmatter at the start of th
 - **THEN** the frontmatter is a protected zone
 - **AND** the parse result has no mark
 
+#### Scenario: Frontmatter after a byte order mark
+- **WHEN** a note starts with the byte order mark `U+FEFF`, then `---`, a line `title: {++x++}`, and `---`
+- **THEN** the frontmatter is a protected zone
+- **AND** the parse result has no mark
+
 #### Scenario: Table
 - **WHEN** a note contains a header row `| a | b |`, a delimiter row `|---|---|` and a body row
 - **THEN** the three rows are one protected zone
@@ -93,7 +98,7 @@ The format SHALL find these protected zones: YAML frontmatter at the start of th
 - **THEN** the parse result has one insertion with the content `` run `make` ``
 
 ### Requirement: Unique mark ids
-Each mark that MD-Coeditor creates SHALL get an id that is not used by another mark in the note. The format SHALL report ids that occur more than once. On request, it SHALL give a new id to each mark without an id, and to each occurrence of a duplicate id after the first. It SHALL NOT change other text.
+Each mark that MD-Coeditor creates SHALL get an id that is not used by another mark in the note. The format SHALL report ids that occur more than once. On request, it SHALL give a new id to each mark without an id, and to each occurrence of a duplicate id after the first. It SHALL NOT change other text, and it SHALL report each change to the text (position in the old text and the new text).
 
 #### Scenario: Duplicate id is reported
 - **WHEN** a note has two marks with the id `a1`
@@ -104,6 +109,17 @@ Each mark that MD-Coeditor creates SHALL get an id that is not used by another m
 - **THEN** the mark `{++x++}` gets a new id
 - **AND** the first mark with `a1` keeps it, and the second mark gets a new id
 - **AND** all ids in the note are different
+
+### Requirement: Agent view
+The format SHALL give the agent view of a note: the text as if all pending marks were accepted. Plain text stays as it is. Insertions and highlights show their content, and substitutions show their new text. Deletions and comments are hidden. The format SHALL map each position in the agent view back to a position in the note.
+
+#### Scenario: View of a replace
+- **WHEN** a note contains `The {--old--}{++new++} text.`
+- **THEN** the agent view is `The new text.`
+
+#### Scenario: Comments are hidden
+- **WHEN** a note contains `A {==big==}{>>why?<<} cat.`
+- **THEN** the agent view is `A big cat.`
 
 ### Requirement: Suggestion makes insertion and deletion marks
 A suggestion has a find text, a replace text, an author and a date. The format SHALL mark only the changed part: it removes the common start and end of the two texts, and then extends the changed part to whole words. Removed text SHALL become a deletion, added text an insertion, deletion first. Each new mark SHALL have its own new id, the author and the date.
@@ -125,12 +141,17 @@ A suggestion has a find text, a replace text, an author and a date. The format S
 - **WHEN** the note contains `The cat sat.` and the suggestion replaces `cat` with `cut`
 - **THEN** the deletion content is `cat` and the insertion content is `cut`
 
+#### Scenario: Change an emoji
+- **WHEN** the note contains `I like 😀 a lot.` and the suggestion replaces `😀` with `😁`
+- **THEN** the deletion content is `😀` and the insertion content is `😁`
+
 #### Scenario: Result reports the new marks
 - **WHEN** a suggestion succeeds
 - **THEN** the result has the new note text and, for each new mark, its id, kind, content and position
+- **AND** the result has the change to the note text: its start and end in the old text, and the inserted text
 
 ### Requirement: Suggestion target must be unique
-The find text SHALL match exactly one place in plain text outside marks and protected zones. Optional text before and after the find text SHALL narrow the match: it must occur directly before or after the match in the note. Matches that overlap a mark or a protected zone SHALL NOT count as matches.
+The find text SHALL match exactly one place in the agent view. Optional text before and after the find text SHALL narrow the match: it must occur directly before or after the match in the agent view. Matches that overlap a protected zone SHALL NOT count. Matches that touch or overlap a pending mark SHALL count, so that the format never chooses between places that the agent sees. A match SHALL NOT start or end inside a character that takes two UTF-16 code units (for example an emoji).
 
 #### Scenario: Not found
 - **WHEN** the find text does not occur in the note
@@ -144,6 +165,23 @@ The find text SHALL match exactly one place in plain text outside marks and prot
 #### Scenario: Context makes it unique
 - **WHEN** the find text occurs two times, and the text before is given and matches only before the second occurrence
 - **THEN** the suggestion changes the second occurrence
+
+#### Scenario: Match next to a mark counts
+- **WHEN** the note contains `The {++big ++}cat sat. The big cat ran.` and the find text is `big cat`
+- **THEN** the suggestion is refused with the reason "ambiguous"
+
+#### Scenario: Matches in a zone do not count
+- **WHEN** the note contains `` `cat` and cat `` and the find text is `cat`
+- **THEN** the suggestion changes the second `cat`
+
+#### Scenario: Context across a mark
+- **WHEN** the note contains `The {++big ++}cat sat.`, the find text is `cat` and the text before is `The big `
+- **THEN** the suggestion succeeds
+- **AND** the mark `{++big ++}` is unchanged
+
+#### Scenario: Emoji is not split
+- **WHEN** the note contains `a 😀 cat` and the find text is the second half of the emoji followed by ` cat`
+- **THEN** the suggestion is refused with the reason "not found"
 
 ### Requirement: Unsafe suggestions are refused
 The format SHALL refuse a suggestion, and SHALL NOT change the note, when: the find text is empty; replace equals find; a match overlaps a pending mark; a match overlaps a protected zone; find or replace has a line break; find or replace contains a CriticMarkup opening or closing sequence; the marked part would include a line's block prefix (heading, list, task or quote marker, or indentation); or the author or date is not a valid attribute value.
@@ -183,3 +221,35 @@ The format SHALL refuse a suggestion, and SHALL NOT change the note, when: the f
 #### Scenario: No change
 - **WHEN** the replace text equals the find text
 - **THEN** the suggestion is refused with the reason "no change"
+
+### Requirement: Decision outcomes stay safe
+The format SHALL check the marked note and each decision outcome of the new marks (all accepted, all rejected, and both mixed outcomes of a replace). It SHALL refuse the suggestion with "structural edit" when an outcome changes a line's block structure (block prefix, setext underline or thematic break), and with "unsafe result" when the new marks combine with existing markup or code, or an outcome changes other marks or protected zones.
+
+#### Scenario: New list marker
+- **WHEN** the note has the line `item` and the suggestion replaces `item` with `- item`
+- **THEN** the suggestion is refused with the reason "structural edit"
+
+#### Scenario: Mixed decision exposes a heading
+- **WHEN** the note has the line `Hello # world` and the suggestion replaces `Hello # world` with `Hi # world`
+- **THEN** the suggestion is refused with the reason "structural edit", because accepting the deletion and rejecting the insertion gives the heading ` # world`
+
+#### Scenario: Line becomes a setext underline
+- **WHEN** the note has the line `Hello` and the next line `World`, and the suggestion replaces `World` with `===`
+- **THEN** the suggestion is refused with the reason "structural edit"
+
+#### Scenario: Leading space after a mixed decision is fine
+- **WHEN** the note has the line `The cat sat.` and the suggestion replaces `The cat` with `A cat`
+- **THEN** the suggestion succeeds
+
+#### Scenario: Unclosed mark before the place
+- **WHEN** the note contains `Use {++ with care.` and the suggestion replaces `care` with `caution`
+- **THEN** the suggestion is refused with the reason "unsafe result"
+- **AND** the note does not change
+
+#### Scenario: Replace text opens a code block
+- **WHEN** the note contains a line `Hello` and later lines with a pending mark, and the suggestion replaces `Hello` with three backticks
+- **THEN** the suggestion is refused with the reason "unsafe result"
+
+#### Scenario: Backtick joins inline code
+- **WHEN** the note contains ``Say ` hi`` and the suggestion replaces `hi` with `` hi` ``
+- **THEN** the suggestion is refused with the reason "unsafe result"
