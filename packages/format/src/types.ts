@@ -8,27 +8,52 @@ export type MarkKind =
 /** One attribute of a mark: `[name, value]`. */
 export type Attr = readonly [name: string, value: string];
 
-export interface Mark {
-	kind: MarkKind;
+interface MarkBase {
 	/** Position of `{`. */
-	start: number;
+	readonly start: number;
 	/** Position after the closing `}`. */
-	end: number;
+	readonly end: number;
 	/** Attributes in their original order. */
-	attrs: readonly Attr[];
+	readonly attrs: readonly Attr[];
 	/** First attribute with the name `id`, `author` or `date`. */
-	id?: string;
-	author?: string;
-	date?: string;
+	readonly id?: string;
+	readonly author?: string;
+	readonly date?: string;
 	/** Raw text between the operators. For a substitution: `old~>new`. */
-	content: string;
-	/** Substitution only. */
-	oldContent?: string;
-	newContent?: string;
+	readonly content: string;
 	/** Range of `content` in the note. */
-	contentStart: number;
-	contentEnd: number;
+	readonly contentStart: number;
+	readonly contentEnd: number;
 }
+
+export interface InsertionMark extends MarkBase {
+	readonly kind: "insertion";
+}
+
+export interface DeletionMark extends MarkBase {
+	readonly kind: "deletion";
+}
+
+export interface SubstitutionMark extends MarkBase {
+	readonly kind: "substitution";
+	readonly oldContent: string;
+	readonly newContent: string;
+}
+
+export interface HighlightMark extends MarkBase {
+	readonly kind: "highlight";
+}
+
+export interface CommentMark extends MarkBase {
+	readonly kind: "comment";
+}
+
+export type Mark =
+	| InsertionMark
+	| DeletionMark
+	| SubstitutionMark
+	| HighlightMark
+	| CommentMark;
 
 export type ZoneKind =
 	| "frontmatter"
@@ -83,6 +108,9 @@ export interface Change {
 	insert: string;
 }
 
-export type Result<T> =
-	| ({ ok: true } & T)
-	| { ok: false; code: ErrorCode; message: string };
+/** `T` may not have the keys `ok`, `code` or `message`. */
+export type Result<
+	T extends {
+		[K in keyof T]: K extends "ok" | "code" | "message" ? never : unknown;
+	},
+> = ({ ok: true } & T) | { ok: false; code: ErrorCode; message: string };

@@ -28,7 +28,11 @@ describe("public API", () => {
 
 		let text = s.text;
 		for (const mark of parsed.marks) {
-			const d = decide(text, mark.id as string, "accept");
+			const d = decide({
+				text: text,
+				id: mark.id as string,
+				decision: "accept",
+			});
 			expect(d.ok).toBe(true);
 			if (d.ok) text = d.text;
 		}

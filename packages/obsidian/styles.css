@@ -1,1 +1,11 @@
-/* MD-Coeditor styles. Empty for now. */
+/* MD-Coeditor styles. The same classes in Live Preview and Reading view. */
+
+.coedit-ins {
+	color: var(--color-green);
+	text-decoration: underline;
+}
+
+.coedit-del {
+	color: var(--color-red);
+	text-decoration: line-through;
+}

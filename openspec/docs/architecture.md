@@ -154,10 +154,14 @@ snapshots/
 
 ### Dialect
 
+The dialect is the obsidian-track-changes format. We checked it against the other Obsidian CriticMarkup plugins on 2026-10-24.
+
 - The five CriticMarkup kinds: `{++insertion++}`, `{--deletion--}`, `{~~old~>new~~}`, `{==highlight==}`, `{>>comment<<}`.
 - An optional attribute prefix inside the braces: `{id="k3f9qz" author="Claude" date="2026-10-24"++new++}`. New marks write `id`, `author`, `date` in this order. Unknown attributes are kept, in their order. This is the extension point for later attributes.
+- Attribute rules: spaces or tabs separate the attributes. A value has no `"`, `{`, `}` or line break. A `date` is a real calendar date.
+- Compatibility: the obsidian-track-changes plugin reads our marks, with author and date. The plugins review-comments, review-critics, Inkling and Commentator show our marks as plain text. They do not damage the note. Commentator writes its data as `{++{"author":"X"}@@x++}`. We read that data as content for now. A follow-up in `add-external-changes` fixes this (see [roadmap.md](roadmap.md#follow-ups-from-change-1)).
 - A mark ends at the first close sequence of its kind. A mark can contain a single line break, but no blank line.
-- Considered and rejected for now: the attributes in an HTML comment after the mark (`{++x++}<!--id="a1"-->`). Plain CriticMarkup tools would show a clean mark, but an edit can separate the comment from its mark. Before the first release, check compatibility with existing Obsidian CriticMarkup plugins (see [Open decisions](#open-decisions)). Until then, only `attrs.ts`, `parse.ts` and `serialize.ts` know the prefix.
+- Considered and rejected: the attributes in an HTML comment after the mark (`{++x++}<!--id="a1"-->`). Plain CriticMarkup tools would show a clean mark, but an edit can separate the comment from its mark. Only `attrs.ts`, `parse.ts` and `serialize.ts` know the prefix.
 
 ### Protected zones
 
@@ -192,6 +196,42 @@ A suggestion becomes a deletion and an insertion, each with its own id and decis
 
 So a decision in Obsidian can never break the note or hide other pending marks. Slice 1 suggestions are one line each, with no markup in the find or replace text.
 
+## Obsidian plugin editor
+
+From change 2 (`add-obsidian-review-basics`).
+
+### Modules
+
+All editor logic is plain CodeMirror 6 code in `packages/obsidian/src`, so it runs in jsdom tests. Only `main.ts` imports `obsidian`. It registers the extension, the commands, the editor menu and the Reading view post-processor, and it shows notices. It has no other logic.
+
+| Module | Content |
+|---|---|
+| `marks.ts` | A state field with the parse result of the note (insertions, deletions, other kinds, duplicate ids). It parses the whole note on each document change. Also the injected `isLivePreview` check and the hidden ranges of a mark. |
+| `render.ts` | Live Preview decorations: hidden syntax, the classes `coedit-ins` and `coedit-del` with an `aria-label` tooltip, atomic ranges. Nothing in Source mode. |
+| `protect.ts`, `motion.ts` | Edit protection and cursor keys (see below). |
+| `decide.ts`, `navigate.ts` | Accept and reject at the cursor or at the right-click position, next and previous change. Each returns a transaction spec or a notice text. |
+| `reading.ts` | Reading view rendering. |
+| `extension.ts` | All of the above as one extension: `coeditExtension({ isLivePreview })`. |
+
+### Hidden syntax stays whole
+
+- In Live Preview, the braces, operators and attributes of insertions and deletions are always hidden, also with the cursor inside. They are atomic ranges.
+- A change filter applies to user edits only (`input`, `delete`, `move`). When an edit covers part of a mark, the filter keeps that mark's hidden ranges, so only the visible text changes. An edit that covers the whole mark removes it. File reloads and decisions are not user edits, so they pass.
+- Keymaps (`Prec.high`) work on visible characters next to hidden syntax: Backspace and Delete delete the visible character on the other side, and Left and Right (also with Shift) move over one visible character with one key press. Without them, a key press at a mark edge does nothing that the user can see.
+- A decision is one transaction with `filter: false`. A mark without an id, or with a duplicate id, gets a new id in the same transaction, so one undo gives back the exact text.
+
+### Right-click menu
+
+Obsidian's `editor-menu` event does not give the mouse position. A `contextmenu` handler stores the start of the change span under the pointer (null when the pointer is not on a change span), and `editor-menu` adds "Accept change" and "Reject change" only for that position. A click on plain text next to a mark does not show the items. On macOS the menu is native, so end-to-end tests must read the menu object, not the DOM.
+
+### Reading view
+
+The post-processor collects the text nodes of a rendered section (not in `code`, `pre`, tables or frontmatter), joins them, and parses the joined text with `packages/format`. It adds a blank line between blocks, so no mark is found across two blocks. It then removes the hidden syntax from the text nodes and wraps the content in the same classes as in Live Preview. Formatting inside a mark stays. Reading view has no decisions.
+
+### Speed
+
+A key press parses the whole note. In a 1.13 MB note with 3,000 marks, this takes 12.6 ms on average, above the 8 ms target. A roadmap follow-up covers an incremental parse.
+
 ## Rules
 
 - **One writer for each file.** The hub writes the notes, the log and `endpoint.json`. The bridge and `coedit inbox` write only `cursor.json`.
@@ -211,4 +251,3 @@ So a decision in Obsidian can never break the note or hide other pending marks. 
 ## Open decisions
 
 - Spike S2: which channel flag value works for each load method. See [tech-stack.md](tech-stack.md#checks-for-the-spikes).
-- Mark dialect: does the attribute prefix work with existing Obsidian CriticMarkup plugins, or do we move the attributes (for example into an HTML comment)? Decide before change 2. See [Mark format](#mark-format) and [roadmap.md](roadmap.md#open-checks).

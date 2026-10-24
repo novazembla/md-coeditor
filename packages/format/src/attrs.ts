@@ -40,7 +40,7 @@ function readOne(text: string, pos: number): ReadAttr | null {
 				valueEnd: q,
 			};
 		}
-		if (ch === "\n" || ch === "\r") return null;
+		if (ch === "\n" || ch === "\r" || ch === "{" || ch === "}") return null;
 		q++;
 	}
 	return null;
@@ -48,7 +48,8 @@ function readOne(text: string, pos: number): ReadAttr | null {
 
 /**
  * Read an attribute prefix at `start` (the position after `{`).
- * Attributes are separated by one or more spaces. Spaces after the last
+ * Attributes are separated by one or more spaces or tabs (mixed is fine).
+ * A value has no `"`, `{`, `}` or line break. Spaces and tabs after the last
  * attribute are not part of the result. Returns null if there is no valid
  * prefix.
  */
@@ -61,7 +62,7 @@ export function readAttrs(text: string, start: number): ReadAttrs | null {
 		attrs.push(attr);
 		const end = attr.valueEnd + 1;
 		let p = end;
-		while (text[p] === " ") p++;
+		while (text[p] === " " || text[p] === "\t") p++;
 		if (p > end && NAME_START.test(text[p] ?? "")) {
 			pos = p;
 			continue;

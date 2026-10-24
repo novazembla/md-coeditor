@@ -108,6 +108,8 @@ md-coeditor/
 - `manifest.json` has `"isDesktopOnly": true`. The plugin uses Node APIs (`http`, `fs`).
 - `minAppVersion` must not be higher than the Obsidian app on the developer's machine. Use the lower of the installed app version and the `obsidian` types version.
 - The CodeMirror 6 tests use the same `@codemirror/*` versions as Obsidian. They are devDependencies only.
+- `@codemirror/commands` is a devDependency for tests only (history and undo, cursor commands). Plugin code never imports it, because Obsidian does not provide it at runtime.
+- The Live Preview logic is plain CodeMirror 6 code. It gets `isLivePreview` as an injected function. `main.ts` passes Obsidian's `editorLivePreviewField`. The reason: the `obsidian` package has no runtime code, so vitest cannot run code that imports it.
 - Development loop: esbuild in watch mode, and the "Hot Reload" community plugin in the test vault. `coedit init --dev` links the plugin folder to `packages/obsidian/dist`.
 
 ## Claude Code plugin

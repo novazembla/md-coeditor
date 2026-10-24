@@ -10,27 +10,36 @@ function must<T extends { ok: boolean }>(r: T): T & { ok: true } {
 
 function run(text: string, steps: [string, "accept" | "reject"][]): string {
 	let t = text;
-	for (const [id, d] of steps) t = must(decide(t, id, d)).text;
+	for (const [id, d] of steps)
+		t = must(decide({ text: t, id: id, decision: d })).text;
 	return t;
 }
 
 describe("Accept and reject an insertion", () => {
 	const note = 'The {id="a1"++big ++}cat.';
 	it("Accept insertion", () => {
-		expect(must(decide(note, "a1", "accept")).text).toBe("The big cat.");
+		expect(
+			must(decide({ text: note, id: "a1", decision: "accept" })).text,
+		).toBe("The big cat.");
 	});
 	it("Reject insertion", () => {
-		expect(must(decide(note, "a1", "reject")).text).toBe("The cat.");
+		expect(
+			must(decide({ text: note, id: "a1", decision: "reject" })).text,
+		).toBe("The cat.");
 	});
 });
 
 describe("Accept and reject a deletion", () => {
 	const note = 'A {id="d1"--very --}big cat.';
 	it("Accept deletion", () => {
-		expect(must(decide(note, "d1", "accept")).text).toBe("A big cat.");
+		expect(
+			must(decide({ text: note, id: "d1", decision: "accept" })).text,
+		).toBe("A big cat.");
 	});
 	it("Reject deletion", () => {
-		expect(must(decide(note, "d1", "reject")).text).toBe("A very big cat.");
+		expect(
+			must(decide({ text: note, id: "d1", decision: "reject" })).text,
+		).toBe("A very big cat.");
 	});
 });
 
@@ -66,17 +75,21 @@ describe("Marks of a replace are decided on their own", () => {
 
 describe("Decisions address a mark by id", () => {
 	it("Unknown id", () => {
-		const r = decide("plain text", "x9", "accept");
+		const r = decide({ text: "plain text", id: "x9", decision: "accept" });
 		expect(r).toMatchObject({ ok: false, code: "not_found" });
 		if (!r.ok) expect(r.message).toMatch(/no mark/i);
 	});
 	it("Duplicate id", () => {
-		const r = decide('{id="a1"++x++} {id="a1"++y++}', "a1", "accept");
+		const r = decide({
+			text: '{id="a1"++x++} {id="a1"++y++}',
+			id: "a1",
+			decision: "accept",
+		});
 		expect(r).toMatchObject({ ok: false, code: "duplicate_id" });
 	});
 	it("Unsupported kind", () => {
 		const note = '{id="s1"~~a~>b~~}';
-		const r = decide(note, "s1", "accept");
+		const r = decide({ text: note, id: "s1", decision: "accept" });
 		// Only these keys: no new text, no changes, no mark.
 		expect(r).toEqual({
 			ok: false,
@@ -89,7 +102,7 @@ describe("Decisions address a mark by id", () => {
 describe("Decision result", () => {
 	it("Result of an accepted insertion", () => {
 		const note = 'The {id="a1" author="Claude" date="2026-10-24"++big ++}cat.';
-		const r = must(decide(note, "a1", "accept"));
+		const r = must(decide({ text: note, id: "a1", decision: "accept" }));
 		expect(r.mark).toMatchObject({
 			id: "a1",
 			kind: "insertion",
@@ -108,7 +121,7 @@ describe("Decision result", () => {
 	});
 	it("Result of a rejected insertion", () => {
 		const note = 'The {id="a1"++big ++}cat.';
-		const r = must(decide(note, "a1", "reject"));
+		const r = must(decide({ text: note, id: "a1", decision: "reject" }));
 		expect(r.decision).toBe("reject");
 		expect(r.mark).toMatchObject({ id: "a1", kind: "insertion", start: 4 });
 		expect(r.text).toBe("The cat.");

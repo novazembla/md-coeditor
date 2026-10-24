@@ -58,7 +58,7 @@ describe("changes of suggest, decide and assignIds", () => {
 			["i1", "accept"],
 			["i1", "reject"],
 		] as const) {
-			const r = decide(note, id, d);
+			const r = decide({ text: note, id: id, decision: d });
 			expect(r.ok).toBe(true);
 			if (r.ok) expect(applyChanges(note, r.changes)).toBe(r.text);
 		}

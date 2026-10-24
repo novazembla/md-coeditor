@@ -68,6 +68,19 @@ coedit claude --doc note.md # starts a co-editor session
 
 Other root scripts: `pnpm dev` (watch mode), `pnpm test`, `pnpm typecheck`, `pnpm lint`, `pnpm format`, `pnpm check` (lint, type check and tests).
 
+### Reload the Obsidian plugin during development
+
+The plugin build writes a `.hotreload` file into `packages/obsidian/dist/`. With the [Hot Reload](https://github.com/pjeby/hot-reload) plugin, Obsidian reloads MD-Coeditor after each build.
+
+One-time setup: open `test-vault` in Obsidian. Go to Settings → Community plugins → Browse, install "Hot Reload" and turn it on. Plugins belong to one vault, so install it in `test-vault`, not in another vault.
+
+Development loop:
+
+1. Run `pnpm dev`. esbuild rebuilds the plugin each time you save a file.
+2. Hot Reload sees the new build and reloads MD-Coeditor. A notice shows in Obsidian.
+
+Without Hot Reload: after `pnpm build`, turn MD-Coeditor off and on in Settings → Community plugins, or run "Reload app without saving" from the command palette.
+
 For all steps and options, see [install.md](openspec/docs/install.md).
 
 ## OpenSpec

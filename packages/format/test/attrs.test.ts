@@ -44,6 +44,58 @@ describe("readAttrs", () => {
 	});
 });
 
+describe("readAttrs: separators and braces", () => {
+	const rows: [string, string, string[][] | null][] = [
+		[
+			"tab",
+			'{id="a"\tauthor="b"++',
+			[
+				["id", "a"],
+				["author", "b"],
+			],
+		],
+		[
+			"tabs",
+			'{id="a"\t\tauthor="b"++',
+			[
+				["id", "a"],
+				["author", "b"],
+			],
+		],
+		[
+			"tab then space",
+			'{id="a"\t author="b"++',
+			[
+				["id", "a"],
+				["author", "b"],
+			],
+		],
+		[
+			"space then tab",
+			'{id="a" \tauthor="b"++',
+			[
+				["id", "a"],
+				["author", "b"],
+			],
+		],
+		["{ in a value", '{id="a{1"++', null],
+		["} in a value", '{id="a}1"++', null],
+		["{ in a later value", '{id="a" author="b{"++', null],
+	];
+	for (const [name, text, expected] of rows) {
+		it(name, () => {
+			const r = readAttrs(text, 1);
+			expect(r ? r.attrs.map((a) => [a.name, a.value]) : null).toEqual(
+				expected,
+			);
+		});
+	}
+	it("does not include trailing tabs", () => {
+		const t = '{id="a"\t\t++x++}';
+		expect(readAttrs(t, 1)?.end).toBe(7);
+	});
+});
+
 describe("writeAttrs", () => {
 	it("orders id, author, date, then the rest", () => {
 		expect(

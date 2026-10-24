@@ -385,6 +385,48 @@ describe("suggest: attribute checks", () => {
 	});
 });
 
+describe("suggest: author braces", () => {
+	for (const author of ["A{B", "A}B", "{", "}"]) {
+		it(`author ${author} is refused`, () => {
+			expect(
+				suggest("cat", {
+					find: "cat",
+					replace: "dog",
+					author,
+					date: "2026-10-24",
+				}),
+			).toMatchObject({ ok: false, code: "invalid_attribute" });
+		});
+	}
+});
+
+describe("suggest: date is a calendar date", () => {
+	const rows: [string, boolean][] = [
+		["2026-02-30", false],
+		["2026-02-29", false],
+		["2028-02-29", true],
+		["2026-13-01", false],
+		["2026-04-31", false],
+		["2026-10-24", true],
+		["2026-00-10", false],
+		["2026-01-00", false],
+		["1900-02-29", false],
+		["2000-02-29", true],
+	];
+	for (const [date, valid] of rows) {
+		it(`${date} is ${valid ? "accepted" : "refused"}`, () => {
+			const r = suggest("cat", {
+				find: "cat",
+				replace: "dog",
+				author: "C",
+				date,
+			});
+			if (valid) expect(r).toMatchObject({ ok: true });
+			else expect(r).toMatchObject({ ok: false, code: "invalid_attribute" });
+		});
+	}
+});
+
 describe("suggest: ids", () => {
 	it("skips an id that the call already used", () => {
 		const seq = ["x", "x", "y"];
@@ -421,8 +463,9 @@ describe("suggest: every error code", () => {
 		protected_zone: () => run("```\ncat\n```\n", "cat", "dog"),
 		structural_edit: () => run("# Intro", "# Intro", "## Intro"),
 		unsafe_result: () => run("Use {++ with care.", "care", "caution"),
-		duplicate_id: () => decide(dup, "a1", "accept"),
-		unsupported_kind: () => decide('{id="s1"==a==}', "s1", "accept"),
+		duplicate_id: () => decide({ text: dup, id: "a1", decision: "accept" }),
+		unsupported_kind: () =>
+			decide({ text: '{id="s1"==a==}', id: "s1", decision: "accept" }),
 	};
 	for (const [name, trigger] of Object.entries(triggers)) {
 		it(`${name} has a code and a message`, () => {

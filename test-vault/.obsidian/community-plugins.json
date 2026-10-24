@@ -1,1 +1,4 @@
-["md-coeditor"]
+[
+  "hot-reload",
+  "md-coeditor"
+]

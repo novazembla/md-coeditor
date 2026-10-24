@@ -42,11 +42,19 @@ In Live Preview, the braces, the operators and the attribute prefix of an insert
 - **THEN** the first line shows `one` and the second line shows `two end`, with `one` and `two` green and underlined
 
 ### Requirement: The cursor never stops inside hidden syntax
-In Live Preview, the cursor SHALL NOT be placed inside a hidden part of a mark. Moving the cursor over a hidden part SHALL take one step, and a click SHALL place the cursor before or after the hidden part.
+In Live Preview, the cursor SHALL NOT be placed inside a hidden part of a mark. Each press of the left or right arrow key (also with Shift) SHALL move the cursor over exactly one visible character, also where hidden parts are next to the cursor. A click SHALL place the cursor before or after the hidden part.
 
 #### Scenario: Arrow key over the hidden prefix
-- **WHEN** the note contains `The {id="a1"++big ++}cat.`, the cursor is directly after `The `, and the user presses the right arrow key two times
+- **WHEN** the note contains `The {id="a1"++big ++}cat.`, the cursor is directly after `The `, and the user presses the right arrow key one time
 - **THEN** the cursor is directly after `b`
+
+#### Scenario: Arrow key out of a mark
+- **WHEN** the note contains `The {id="a1"++big ++}cat.`, the cursor is directly after `big `, and the user presses the right arrow key one time
+- **THEN** the cursor is directly after `c`
+
+#### Scenario: One key press for each visible character
+- **WHEN** the note contains `The {id="d1"--cat--}{id="a1"++dog++} sat.` and the user moves the cursor from the start to the end of the line with the right arrow key, and back with the left arrow key
+- **THEN** each key press moves the cursor over one visible character of `The catdog sat.`
 
 #### Scenario: No cursor position in the prefix
 - **WHEN** the note contains `The {id="a1"++big ++}cat.` and the user moves the cursor through the whole line with the arrow keys

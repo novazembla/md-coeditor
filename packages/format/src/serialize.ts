@@ -9,7 +9,11 @@ export const OPERATORS: Record<MarkKind, { open: string; close: string }> = {
 	comment: { open: ">>", close: "<<" },
 };
 
-/** Join the input slices of all segments. Gives back the parsed text. */
+/**
+ * A check function, not a writer. Joins the input slices of all segments,
+ * which gives back the parsed text. The spec "Lossless round trip" uses it:
+ * `serialize(parse(t)) === t`.
+ */
 export function serialize(parsed: ParsedNote): string {
 	return parsed.segments.map((s) => parsed.text.slice(s.start, s.end)).join("");
 }

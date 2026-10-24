@@ -30,6 +30,7 @@ See proposal.md for the why and the decisions made with the user. The current st
 | `marks.ts` | `StateField` with the parse result of the document (insertions and deletions, with their hidden ranges and visible ranges). Recomputed when the document changes. | no |
 | `render.ts` | Decorations and atomic ranges from the field; theme classes; tooltip text. | no |
 | `protect.ts` | The change filter (D5) and the Backspace/Delete keymap (D5). | no |
+| `motion.ts` | The Left/Right arrow keymap (D5). | no |
 | `decide.ts` | `markAt(state, pos)`, `decideAt(state, pos, decision)` → a `TransactionSpec` or a notice text. | no |
 | `navigate.ts` | `nextChange(state, dir)` → a selection, or a notice text. | no |
 | `reading.ts` | `renderChanges(el: HTMLElement)` for Reading view (D8). | no |
@@ -69,6 +70,7 @@ Two parts:
 
 1. **Change filter** (`EditorState.changeFilter`). It applies only to user edits: `tr.isUserEvent("input")`, `"delete"`, `"move"` (drag) and `"paste"` (part of `input`). For each mark that a change overlaps (`from < markEnd && to > markStart`) but does not cover fully, it returns the hidden ranges of that mark as suppressed ranges. CodeMirror then applies the change only outside those ranges. Pure insertions (`from === to`) never overlap. Changes from Obsidian itself (file reload, sync) and decisions are not user events, so they pass.
 2. **Backspace and Delete keymap** (`Prec.high`). With an empty selection directly after a hidden range (Backspace) or directly before one (Delete), the key deletes the visible character on the other side of the hidden range. Without it, CodeMirror deletes the whole atomic range, and the filter then suppresses that, so the key would do nothing.
+3. **Left and Right arrow keymap** (`Prec.high`, `motion.ts`; also with Shift). At a mark edge, two positions look the same: before `{` and after the hidden prefix (and the same at the end of a mark). CodeMirror's atomic ranges move the cursor from one to the other, and that key press shows no motion. The keymap moves the cursor over the hidden ranges next to it and over one visible character in one key press. Found in the manual test (task 11.3); jsdom tests cannot see it, because they have no layout.
 
 Decisions use `filter: false` in the transaction spec, so the filter never touches them.
 
@@ -92,7 +94,7 @@ The decision result (mark, decision, id) is returned to the caller too. Change 3
 
 `main.ts` adds the commands `accept-change`, `reject-change`, `next-change` and `previous-change`, with no default hotkeys (Obsidian's guideline: users set hotkeys). Names: "Accept change", "Reject change", "Go to next change", "Go to previous change".
 
-The editor menu (`workspace.on("editor-menu")`) does not give the mouse position. A `contextmenu` DOM handler (`EditorView.domEventHandlers`) stores `view.posAtCoords(event)` in a small `StateField` before Obsidian opens the menu. The `editor-menu` handler reads that position and adds the two items only when `markAt` finds an insertion or deletion. The order of the two events must be checked in the real app (manual task).
+The editor menu (`workspace.on("editor-menu")`) does not give the mouse position. A `contextmenu` DOM handler (`EditorView.domEventHandlers`) stores a position in a small `StateField` before Obsidian opens the menu. The position is the start of the change span under the pointer (`view.posAtDOM(span)`), or null when the pointer is not on a change span. `posAtCoords` is not used: on the left half of `c` in `cat.`, directly after an insertion, it gives the position at the end of the insertion, and the menu would show the items (spec scenario "Right-click on plain text"). The `editor-menu` handler reads that position and adds the two items only when `markAt` finds an insertion or deletion. The order of the two events must be checked in the real app (manual task).
 
 ### D8. Reading view
 
@@ -121,6 +123,8 @@ Alternative: render the section again from the source (`ctx.getSectionInfo`). Re
 ### D10. Speed
 
 The field parses the full note on each change. Change 1 measured about 3 ms for 3,000 marks. This change measures, in Node, the parse and the decoration build for a note of 1 MB with 3,000 marks. The limit is 8 ms for both (half a frame at 60 Hz). Above the limit: write down the result and add a roadmap follow-up for an incremental parse. No cache in this change.
+
+Result (2026-10-24, `packages/obsidian/src/speed.bench.ts`, `pnpm vitest bench --run` in `packages/obsidian`, Node 24 on the developer's Mac): a note of 1.13 MB with 3,000 marks (9,000 decorations). The parse takes 9.0 ms (mean). One key press (field update with the full parse, and the decoration build) takes 12.6 ms (mean), 41.7 ms (p99). This is above the limit. Notes of this size are rare, so the change keeps the full parse. The roadmap has a follow-up for an incremental parse.
 
 ### D11. Documentation
 
@@ -159,3 +163,4 @@ None. No notes with MD-Coeditor marks exist yet. A mark whose attribute value co
 ## Open Questions
 
 - Does `EditorState.changeFilter` with suppressed ranges also keep the selection correct after a paste over part of a mark? The edit tests answer it. If not, the plugin sets the selection after such a transaction itself (a `transactionExtender`). This does not change the specs or the approach.
+  - Answer (task 4.1, `protect.test.ts`): yes. After a delete, a typed character or a paste over part of a mark, the cursor is directly after the inserted text. No `transactionExtender` is needed.

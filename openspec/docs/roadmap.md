@@ -25,7 +25,8 @@ Updated 2026-10-24.
 |---|---|---|---|---|
 | 0 | `setup-monorepo` | 0 | archived | `openspec/changes/archive/2026-10-24-setup-monorepo/`. |
 | 1 | `add-insert-delete-format` | 1 | archived | `openspec/changes/archive/2026-10-24-add-insert-delete-format/`. Follow-ups: see "Follow-ups from change 1". |
-| 2 | `add-obsidian-review-basics` | 1 | planned | Next. Do the mark dialect open check first. |
+| 2 | `add-obsidian-review-basics` | 1 | archived | `openspec/changes/archive/2026-10-24-add-obsidian-review-basics/`. Windows check not done (see Open checks). |
+| 12 | `add-obsidian-e2e-tests` | 1 | planned | Squeezed in after 2, before 3. Number 12 because 3 to 11 are referenced elsewhere. |
 | 3 | `add-claude-suggest-loop` | 1 | planned | |
 | 4 | `add-agent-push` | later | planned | Needs spike S2. |
 | 5 | `add-substitution-and-comments` | later | planned | |
@@ -48,7 +49,7 @@ Updated 2026-10-24.
 
 The agent suggests, the user accepts or rejects in Obsidian, and the agent sees the decisions on the next prompt. Slice 1 uses only `{++…++}` and `{--…--}`.
 
-The three changes are in sequence: each one builds on the one before it.
+The changes are in sequence, in this order: 1, 2, 12, 3. Each one builds on the one before it.
 
 ### 1. `add-insert-delete-format`
 
@@ -60,12 +61,20 @@ The three changes are in sequence: each one builds on the one before it.
 
 - **Scope:** the Obsidian plugin renders the marks and has accept and reject commands. No agent yet.
 - **Depends on:** 1.
-- **Capabilities (expected):** `markup-rendering` (added), `change-decisions` (modified: the Obsidian commands).
+- **Capabilities:** `markup-rendering` (added); `change-decisions` (modified: the Obsidian commands); `markup-format` (modified: attribute values have no `{` or `}`, a tab separates attributes, `date` is a real calendar date).
+
+### 12. `add-obsidian-e2e-tests`
+
+- **Scope:** end-to-end tests in the real Obsidian app with [wdio-obsidian-service](https://github.com/jesse-r-s-hines/wdio-obsidian-service) (WebdriverIO). It downloads a pinned Obsidian version, opens a copy of `test-vault/`, loads the built plugin, and runs the tests. A root script `pnpm test:e2e`, not part of `pnpm check` (it is slow and needs a display). First tests: the manual checks of change 2 that jsdom cannot do (cursor motion over hidden syntax with real layout, the right-click menu, the command palette in each mode, notices, file reload from disk, Reading view). Later changes add their own end-to-end tests here, also the slice 1 end-to-end test.
+- **Why:** jsdom has no layout and no Obsidian. In change 2, a real bug (two key presses at a mark edge) passed all unit tests. Manual checks are slow and do not repeat.
+- **Depends on:** 2.
+- **Capabilities:** none (test tooling only). Check in the proposal whether a test-only change needs a spec.
+- **Open points:** Windows runs (CI or the user's machine); the Obsidian version to pin (the same as `minAppVersion` and the `obsidian` types).
 
 ### 3. `add-claude-suggest-loop`
 
 - **Scope:** hub, bridge, event log, digest, `coedit init`, `coedit claude`, the pull hook (`UserPromptSubmit`) and the Edit/Write guard.
-- **Depends on:** 1, 2. The hub runs in the Obsidian plugin.
+- **Depends on:** 1, 2, 12. The hub runs in the Obsidian plugin.
 - **Capabilities (expected):** `vault-hub`, `event-log`, `agent-tools`, `context-digest`, `note-attachment`, `claude-plugin` (all added); `coedit-cli` (modified: `init`, `claude`, `inbox`, `mcp`); `change-decisions` (modified: decisions are logged).
 
 ### Rules for slice 1
@@ -101,17 +110,19 @@ These are in rough order. They are not grouped into slices yet. Before slice 2 s
 
 ### Follow-ups from change 1
 
-The reviews of `add-insert-delete-format` found these points. They are not in change 1. Each one names the change that takes it.
+The reviews of `add-insert-delete-format` found these points. They are not in change 1. Each one names the change that takes it. The column "State" shows if the change has done it. Later changes add their follow-ups here too.
 
-| Follow-up | Take in |
-|---|---|
-| Error details (match count for `ambiguous`, zone kind for `protected_zone`) and one error-code union per function. | 3 (the agent reads the errors) |
-| A readonly, discriminated `Mark` type (one shape per kind), and a decision about `serialize` (now it always returns the input text). | 2, before the plugin depends on the types |
-| API consistency: `decide` takes an input object like `suggest`, `Result` keys cannot collide with result fields, `date` gets a calendar check. | 2, before the plugin depends on the API |
-| More protected zones: backslash-escaped backticks, `[[wikilinks]]` (a suggestion can split them), callout markers `> [!note]`. | 3 (the agent writes into notes) |
-| Word boundaries for CJK text (now a word is a run of non-whitespace, so one changed character marks the whole run). | 3, decide in its proposal |
-| `decideMany` for accept all and reject all (one `decide` per mark is O(marks × length)). | 6 |
-| `coedit-cli` bundle tests for no arguments and an unknown option, and a check that the tested bundle is not stale. | 3 (it modifies `coedit-cli`) |
+| Follow-up | Take in | State |
+|---|---|---|
+| Error details (match count for `ambiguous`, zone kind for `protected_zone`) and one error-code union per function. | 3 (the agent reads the errors) | open |
+| A readonly, discriminated `Mark` type (one shape per kind), and a decision about `serialize` (now it always returns the input text). | 2, before the plugin depends on the types | done in 2 |
+| API consistency: `decide` takes an input object like `suggest`, `Result` keys cannot collide with result fields, `date` gets a calendar check. | 2, before the plugin depends on the API | done in 2 |
+| More protected zones: backslash-escaped backticks, `[[wikilinks]]` (a suggestion can split them), callout markers `> [!note]`. | 3 (the agent writes into notes) | open |
+| Word boundaries for CJK text (now a word is a run of non-whitespace, so one changed character marks the whole run). | 3, decide in its proposal | open |
+| `decideMany` for accept all and reject all (one `decide` per mark is O(marks × length)). | 6 | open |
+| `coedit-cli` bundle tests for no arguments and an unknown option, and a check that the tested bundle is not stale. | 3 (it modifies `coedit-cli`) | open |
+| Read Commentator's `{"author":"X"}@@` data as attributes. Today the parser reads it as content, so accepting such a mark puts that text into the note. | 9 (`add-external-changes`) | open |
+| Incremental parse in the Obsidian plugin. A key press in a 1.13 MB note with 3,000 marks takes 12.6 ms (limit 8 ms; design D10 of change 2). Parse only the changed paragraphs, or move the parse off the key press. | 7 (live tracking parses on each key press too) | open |
 
 ### Parallel work
 
@@ -134,9 +145,14 @@ Spikes stay outside OpenSpec in `spikes/`, as throwaway code. They do not block 
 | A plugin with `defaultEnabled: false` stays off at user scope, and `--settings` switches it on for one session (marketplace id and `@inline`). | S2 or change 3 |
 | Which channel flag value works for each load method (`plugin:md-coeditor@md-coeditor`, `plugin:md-coeditor@inline`, `server:…`). | S2 |
 | The esbuild ESM bundle of the MCP SDK runs. Alternative: import only the stdio subpaths, or bundle as CommonJS. | Change 3, first task |
-| Everything works on Windows. There is no Windows machine here. | Manual, by the user |
+| Everything works on Windows. There is no Windows machine here. Not done yet for change 2 (`add-obsidian-review-basics`, task 11.6 open at archive). Change 12 can run it with `wdio-obsidian-service`. | Manual, by the user |
 | Structural edits, IME, Vim mode and auto-pair in live tracking. | S1 |
-| The mark dialect (attribute prefix in the braces) works with existing Obsidian CriticMarkup plugins, or we move the attributes (for example into an HTML comment). See the design of change 1, D4 and Open Questions. | Before change 2 |
+
+### Closed checks
+
+| Check | Result | Closed in |
+|---|---|---|
+| The mark dialect (attribute prefix in the braces) works with existing Obsidian CriticMarkup plugins. | Yes. Keep the attribute prefix. It is exactly the obsidian-track-changes format after two fixes: no `{` or `}` in values, and a tab may separate attributes. The other plugins (review-comments, review-critics, Inkling, Commentator) show our marks as plain text. The note is not damaged. | Change 2 (2026-10-24) |
 
 ## Capabilities
 
@@ -145,9 +161,9 @@ The planned spec folders and the changes that touch them.
 | Capability | Main spec exists | Changes |
 |---|---|---|
 | `coedit-cli` | yes | 0, 3, 8 |
-| `markup-format` | yes | 1, 5, 7, 9 |
+| `markup-format` | yes | 1, 2, 5, 7, 9 |
 | `change-decisions` | yes | 1, 2, 3, 5 |
-| `markup-rendering` | no | 2, 5, 6, 7, 10 |
+| `markup-rendering` | yes | 2, 5, 6, 7, 10, 12 |
 | `note-attachment` | no | 3 |
 | `vault-hub` | no | 3, 4, 11 |
 | `event-log` | no | 3, 8, 9 |

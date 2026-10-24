@@ -89,6 +89,57 @@ describe("Mark attributes", () => {
 	it("Invalid prefix", () => {
 		expect(parse('{id="a1 ++x++}').marks).toEqual([]);
 	});
+	it("Tab between attributes", () => {
+		const t = '{id="a1"\tauthor="Claude"++x++}';
+		const p = parse(t);
+		expect(p.marks).toHaveLength(1);
+		expect(p.marks[0]).toMatchObject({
+			kind: "insertion",
+			id: "a1",
+			author: "Claude",
+		});
+		expect(serialize(p)).toBe(t);
+	});
+	it("Brace in a value", () => {
+		expect(parse('{id="a{1}"++x++}').marks).toEqual([]);
+	});
+});
+
+describe("Suggestion date is a calendar date", () => {
+	const withDate = (date: string) => {
+		let i = 0;
+		return suggest("The cat sat.", {
+			find: "cat",
+			replace: "dog",
+			author: "Claude",
+			date,
+			newId: () => `k${++i}`,
+		});
+	};
+	it("Day that does not exist", () => {
+		expect(withDate("2026-02-30")).toMatchObject({
+			ok: false,
+			code: "invalid_attribute",
+		});
+	});
+	it("Leap day", () => {
+		const r = withDate("2028-02-29");
+		expect(r.ok).toBe(true);
+		if (r.ok) {
+			expect(r.marks.map((m) => m.date)).toEqual(["2028-02-29", "2028-02-29"]);
+		}
+	});
+	it("Day in a year that is not a leap year", () => {
+		expect(withDate("2026-02-29")).toMatchObject({
+			ok: false,
+			code: "invalid_attribute",
+		});
+	});
+	it("Parse keeps any date value", () => {
+		expect(parse('{id="a1" date="2026-02-30"++x++}').marks[0]?.date).toBe(
+			"2026-02-30",
+		);
+	});
 });
 
 describe("Lossless round trip", () => {

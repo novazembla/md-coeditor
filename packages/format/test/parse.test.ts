@@ -27,7 +27,7 @@ describe("parse", () => {
 	});
 	it("splits a substitution at the first ~>", () => {
 		const m = parse("{~~a~>b~>c~~}").marks[0];
-		expect([m?.oldContent, m?.newContent]).toEqual(["a", "b~>c"]);
+		expect(m).toMatchObject({ oldContent: "a", newContent: "b~>c" });
 	});
 	it("records content range", () => {
 		const t = '{id="a"++xy++}';

@@ -21,6 +21,13 @@ function firstAttr(attrs: readonly Attr[], name: string): string | undefined {
 	return attrs.find((a) => a[0] === name)?.[1];
 }
 
+function optionalAttr<K extends string>(
+	key: K,
+	value: string | undefined,
+): { [P in K]?: string } {
+	return (value === undefined ? {} : { [key]: value }) as { [P in K]?: string };
+}
+
 /**
  * Read a note into ordered text and mark segments, marks, and zones
  * where marks are not tracked. Never throws.
@@ -77,7 +84,7 @@ export function parse(text: string): ParsedNote {
 			if (!read) return null;
 			attrs = read.attrs.map((a) => [a.name, a.value] as const);
 			p = read.end;
-			while (text[p] === " ") p++;
+			while (text[p] === " " || text[p] === "\t") p++;
 		}
 		const kind = KINDS.find((k) => text.startsWith(OPERATORS[k].open, p));
 		if (!kind) return null;
@@ -88,28 +95,28 @@ export function parse(text: string): ParsedNote {
 		if (closeAt === -1 || closeAt + closeSeq.length > limitAfter(pos))
 			return null;
 		const content = text.slice(contentStart, closeAt);
-		const mark: Mark = {
-			kind,
+		const base = {
 			start: pos,
 			end: closeAt + closeSeq.length,
 			attrs,
 			content,
 			contentStart,
 			contentEnd: closeAt,
+			...optionalAttr("id", firstAttr(attrs, "id")),
+			...optionalAttr("author", firstAttr(attrs, "author")),
+			...optionalAttr("date", firstAttr(attrs, "date")),
 		};
 		if (kind === "substitution") {
 			const arrow = content.indexOf("~>");
 			if (arrow === -1) return null;
-			mark.oldContent = content.slice(0, arrow);
-			mark.newContent = content.slice(arrow + 2);
+			return {
+				...base,
+				kind,
+				oldContent: content.slice(0, arrow),
+				newContent: content.slice(arrow + 2),
+			};
 		}
-		const id = firstAttr(attrs, "id");
-		const author = firstAttr(attrs, "author");
-		const date = firstAttr(attrs, "date");
-		if (id !== undefined) mark.id = id;
-		if (author !== undefined) mark.author = author;
-		if (date !== undefined) mark.date = date;
-		return mark;
+		return { ...base, kind };
 	};
 
 	let zi = 0;

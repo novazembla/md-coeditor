@@ -7,11 +7,13 @@ export type Decision = "accept" | "reject";
  * Accept or reject one insertion or deletion, found by id.
  * The full mark (with attributes) is replaced by its content or by nothing.
  */
-export function decide(
-	text: string,
-	id: string,
-	decision: Decision,
-): Result<{
+export interface DecideInput {
+	text: string;
+	id: string;
+	decision: Decision;
+}
+
+export function decide({ text, id, decision }: DecideInput): Result<{
 	text: string;
 	mark: Mark;
 	decision: Decision;

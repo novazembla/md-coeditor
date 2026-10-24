@@ -1,0 +1,42 @@
+{
+  "md-coeditor:accept-change": [
+    {
+      "modifiers": [
+        "Alt",
+        "Ctrl",
+        "Mod"
+      ],
+      "key": "Z"
+    }
+  ],
+  "md-coeditor:next-change": [
+    {
+      "modifiers": [
+        "Alt",
+        "Ctrl",
+        "Mod"
+      ],
+      "key": "X"
+    }
+  ],
+  "md-coeditor:previous-change": [
+    {
+      "modifiers": [
+        "Alt",
+        "Ctrl",
+        "Mod"
+      ],
+      "key": "C"
+    }
+  ],
+  "md-coeditor:reject-change": [
+    {
+      "modifiers": [
+        "Alt",
+        "Ctrl",
+        "Mod"
+      ],
+      "key": "V"
+    }
+  ]
+}

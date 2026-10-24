@@ -73,7 +73,7 @@ export function project(text: string): View {
 		if (m.kind === "insertion" || m.kind === "highlight") {
 			add(m.content, m.contentStart);
 		} else if (m.kind === "substitution") {
-			const newContent = m.newContent ?? "";
+			const newContent = m.newContent;
 			add(newContent, m.contentEnd - newContent.length);
 		}
 		marks.push({ mark: m, start, end: view.length });

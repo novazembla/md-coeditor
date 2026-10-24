@@ -226,8 +226,16 @@ describe("suggest then decide (property)", () => {
 				let rejected = r.text;
 				let accepted = r.text;
 				for (const m of r.marks) {
-					const a = decide(accepted, m.id as string, "accept");
-					const b = decide(rejected, m.id as string, "reject");
+					const a = decide({
+						text: accepted,
+						id: m.id as string,
+						decision: "accept",
+					});
+					const b = decide({
+						text: rejected,
+						id: m.id as string,
+						decision: "reject",
+					});
 					expect(a.ok && b.ok).toBe(true);
 					if (a.ok) accepted = a.text;
 					if (b.ok) rejected = b.text;
@@ -265,7 +273,11 @@ describe("suggest then decide (property)", () => {
 							pending.push(id);
 							continue;
 						}
-						const d = decide(t, id, state === 0 ? "accept" : "reject");
+						const d = decide({
+							text: t,
+							id: id,
+							decision: state === 0 ? "accept" : "reject",
+						});
 						expect(d.ok).toBe(true);
 						if (d.ok) t = d.text;
 					}

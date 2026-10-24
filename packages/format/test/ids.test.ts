@@ -1,7 +1,9 @@
 import fc from "fast-check";
 import { describe, expect, it } from "vitest";
-import { assignIds, freeId, newId } from "../src/ids";
+import { decide } from "../src/decide";
+import { assignIds, ensureId, freeId, newId } from "../src/ids";
 import { parse } from "../src/parse";
+import { writeMark } from "../src/serialize";
 
 const counter = (prefix = "n") => {
 	let i = 0;
@@ -148,6 +150,120 @@ describe("assignIds property", () => {
 						expect(m?.end).toBe(a.end);
 						expect(m?.id).toBe(a.id);
 					}
+				},
+			),
+			{ numRuns: 2000 },
+		);
+	});
+});
+
+describe("ensureId", () => {
+	it("gives an id to a mark without one", () => {
+		const t = "a {++x++} {--y--}";
+		const r = ensureId(t, 2, { newId: () => "k1" });
+		expect(r.text).toBe('a {id="k1"++x++} {--y--}');
+		expect(r.id).toBe("k1");
+		expect(r.changes).toEqual([{ from: 3, to: 3, insert: 'id="k1"' }]);
+	});
+	it("adds a space before other attributes", () => {
+		const r = ensureId('{author="C"--x--}', 0, { newId: () => "k1" });
+		expect(r.text).toBe('{id="k1" author="C"--x--}');
+	});
+	it("replaces a duplicate id on the first occurrence", () => {
+		const t = '{id="a"++x++} {id="a"--y--}';
+		const r = ensureId(t, 0, { newId: () => "k1" });
+		expect(r.text).toBe('{id="k1"++x++} {id="a"--y--}');
+		expect(r.id).toBe("k1");
+		expect(r.changes).toEqual([{ from: 5, to: 6, insert: "k1" }]);
+	});
+	it("replaces a duplicate id on the second occurrence", () => {
+		const t = '{id="a"++x++} {id="a"--y--}';
+		const r = ensureId(t, 14, { newId: () => "k1" });
+		expect(r.text).toBe('{id="a"++x++} {id="k1"--y--}');
+		expect(r.id).toBe("k1");
+	});
+	it("keeps a unique id", () => {
+		const t = '{id="a"++x++} {id="b"--y--}';
+		expect(ensureId(t, 14)).toEqual({ text: t, changes: [], id: "b" });
+	});
+	it("does not use an id of any mark in the note", () => {
+		const r = ensureId('{id="a"++x++}{id="a"--y--}{id="n1"==z==}', 0, {
+			newId: counter(),
+		});
+		expect(r.id).toBe("n2");
+	});
+	it("does not change other marks", () => {
+		const t = '{++x++}{id="a"--y--}{id="a"==z==}';
+		const before = parse(t).marks;
+		const r = ensureId(t, 0, { newId: () => "k1" });
+		const after = parse(r.text).marks;
+		expect(after).toHaveLength(3);
+		expect(r.text.slice(r.text.indexOf("}") + 1)).toBe(
+			t.slice(t.indexOf("}") + 1),
+		);
+		expect(after.slice(1).map((m) => m.content)).toEqual(
+			before.slice(1).map((m) => m.content),
+		);
+	});
+	it("throws when no mark starts at the position", () => {
+		const t = "a {++x++}";
+		expect(() => ensureId(t, 0)).toThrow(Error);
+		expect(() => ensureId(t, 3)).toThrow(Error);
+		expect(() => ensureId("`{++x++}`", 1)).toThrow(Error);
+	});
+});
+
+describe("ensureId property", () => {
+	it("changes only the prefix of one mark; then decide equals decide with that id from the start", () => {
+		fc.assert(
+			fc.property(
+				fc
+					.array(fc.constantFrom(...fragments), { maxLength: 14 })
+					.map((a) => a.join("")),
+				fc.nat(),
+				fc.constantFrom("accept", "reject"),
+				(t, n, decision) => {
+					const marks = parse(t).marks;
+					if (marks.length === 0) return;
+					const mark = marks[n % marks.length] as (typeof marks)[number];
+					const r = ensureId(t, mark.start);
+					// Text outside the prefix of this mark is unchanged.
+					const prefixEnd = mark.contentStart - 2;
+					const delta = r.text.length - t.length;
+					expect(r.text.slice(0, mark.start + 1)).toBe(
+						t.slice(0, mark.start + 1),
+					);
+					expect(r.text.slice(prefixEnd + delta)).toBe(t.slice(prefixEnd));
+					// The other marks parse the same.
+					const after = parse(r.text).marks;
+					expect(after).toHaveLength(marks.length);
+					marks.forEach((m, i) => {
+						if (m === mark) return;
+						const a = after[i] as (typeof after)[number];
+						const shift = m.start > mark.start ? delta : 0;
+						expect(a).toEqual({
+							...m,
+							start: m.start + shift,
+							end: m.end + shift,
+							contentStart: m.contentStart + shift,
+							contentEnd: m.contentEnd + shift,
+						});
+					});
+					expect(parse(r.text).marks[n % marks.length]?.id).toBe(r.id);
+					// ensureId then decide = decide on a note that had the id.
+					const attrs = [
+						["id", r.id] as const,
+						...mark.attrs.filter((x) => x[0] !== "id"),
+					];
+					const reference =
+						t.slice(0, mark.start) +
+						writeMark(mark.kind, mark.content, attrs) +
+						t.slice(mark.end);
+					const viaEnsure = decide({ text: r.text, id: r.id, decision });
+					const direct = decide({ text: reference, id: r.id, decision });
+					expect(viaEnsure.ok).toBe(direct.ok);
+					if (viaEnsure.ok && direct.ok)
+						expect(viaEnsure.text).toBe(direct.text);
 				},
 			),
 			{ numRuns: 2000 },

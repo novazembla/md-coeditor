@@ -1,6 +1,6 @@
 import { readAttrs } from "./attrs";
 import { parse } from "./parse";
-import type { Change, MarkKind } from "./types";
+import type { Change, Mark, MarkKind } from "./types";
 
 const ALPHABET = "abcdefghijklmnopqrstuvwxyz0123456789";
 
@@ -48,6 +48,21 @@ export interface AssignIdsResult {
 	assigned: AssignedId[];
 }
 
+/** The edit that gives `mark` the id `id`: a new attribute, or a new value for a duplicate. */
+function idEdit(text: string, mark: Mark, id: string): Change {
+	if (mark.id !== undefined) {
+		const read = readAttrs(text, mark.start + 1);
+		const attr = read?.attrs.find((a) => a.name === "id");
+		if (!attr) throw new Error("id attribute not found in mark prefix");
+		return { from: attr.valueStart, to: attr.valueEnd, insert: id };
+	}
+	return {
+		from: mark.start + 1,
+		to: mark.start + 1,
+		insert: `id="${id}"${mark.attrs.length > 0 ? " " : ""}`,
+	};
+}
+
 /**
  * Give a new id to each mark without an id, and to each duplicate occurrence
  * after the first. Changes only the attribute prefix of those marks.
@@ -76,20 +91,7 @@ export function assignIds(
 		const id = freeId(generate, used);
 		used.add(id);
 		seen.add(id);
-		let editStart: number;
-		let editEnd: number;
-		let insert: string;
-		if (mark.id !== undefined) {
-			const read = readAttrs(text, mark.start + 1);
-			const attr = read?.attrs.find((a) => a.name === "id");
-			if (!attr) throw new Error("id attribute not found in mark prefix");
-			editStart = attr.valueStart;
-			editEnd = attr.valueEnd;
-			insert = id;
-		} else {
-			editStart = editEnd = mark.start + 1;
-			insert = `id="${id}"${mark.attrs.length > 0 ? " " : ""}`;
-		}
+		const { from: editStart, to: editEnd, insert } = idEdit(text, mark, id);
 		changes.push({ from: editStart, to: editEnd, insert });
 		out += text.slice(at, editStart) + insert;
 		at = editEnd;
@@ -106,4 +108,44 @@ export function assignIds(
 	}
 	out += text.slice(at);
 	return { text: out, changes, assigned };
+}
+
+export interface EnsureIdResult {
+	text: string;
+	/** Edits to the input text. Empty if the mark already had a unique id. */
+	changes: Change[];
+	/** The id of the mark in `text`. */
+	id: string;
+}
+
+/**
+ * Make sure the mark that starts at `at` (the position of its `{`) has a
+ * unique id. No id, or an id that another mark also has: give it a new id
+ * that no mark in the note uses. A unique id stays. No other mark changes.
+ * Throws if no mark starts at `at` (a programming error).
+ */
+export function ensureId(
+	text: string,
+	at: number,
+	options: { newId?: () => string } = {},
+): EnsureIdResult {
+	const generate = options.newId ?? newId;
+	const { marks } = parse(text);
+	const mark = marks.find((m) => m.start === at);
+	if (!mark) throw new Error(`No mark starts at position ${at}`);
+	if (
+		mark.id !== undefined &&
+		!marks.some((m) => m !== mark && m.id === mark.id)
+	) {
+		return { text, changes: [], id: mark.id };
+	}
+	const used = new Set<string>();
+	for (const m of marks) if (m.id !== undefined) used.add(m.id);
+	const id = freeId(generate, used);
+	const change = idEdit(text, mark, id);
+	return {
+		text: text.slice(0, change.from) + change.insert + text.slice(change.to),
+		changes: [change],
+		id,
+	};
 }
