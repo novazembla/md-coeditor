@@ -2,10 +2,17 @@
 ## Language
 Unless asked otherwise, use simple language. Follow ASD-STE100, but extend the vocabulary with domain terms.
 
+## Subagents
+Give work to subagents (Agent tool) where it fits. Always set `model`:
+- `sonnet`: mechanical work with clear instructions. Examples: tasks from a tasks.md, scaffolding, renames, doc updates, test fixtures, file searches.
+- `opus`: research and architecture. Examples: compare options, read external docs and APIs, design.md decisions, spike analysis, reviews.
+Do it yourself: small work (a few tool calls), integration across packages, the final check of each subagent result.
+Brief each subagent fully: goal, files, rules, done criteria. Independent subagents run in parallel.
+
 ## Project
 md-coeditor: Word-like track changes (CriticMarkup) in Obsidian + interactive Claude Code session in a terminal. CLI binary: `coedit`.
 Status: see openspec/docs/roadmap.md. Scope: Claude Code only; Codex deferred (no access), keep design agent-neutral.
-Docs: openspec/docs/{roadmap,architecture,tech-stack,install}.md (roadmap = slices, changes, status). Plan: ~/.claude/plans/zany-petting-starfish.md (older; docs win on conflict).
+Docs: openspec/docs/{vision,roadmap,architecture,tech-stack,install}.md (vision = purpose and value, no tech; roadmap = slices, changes, status). openspec/docs/initial-plan.md: frozen, partly old; other docs win on conflict.
 
 ## Stack
 - pnpm 12 workspaces (`packageManager` pnpm@12.15.0, `catalog:` for shared versions); no Turbo/Nx. TypeScript strict, ESM. Node >=24.15 for dev (jsdom 30), >=24 for `coedit` runtime. No Bun.

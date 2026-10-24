@@ -10,6 +10,8 @@ MD-Coeditor is an [OpenSpec](https://openspec.dev/) project. We write the specs 
 
 | Document | Contents |
 | --- | --- |
+| [Vision](openspec/docs/vision.md) | Why the product exists, for whom, its value |
+| [Roadmap](openspec/docs/roadmap.md) | Slices, changes, order, status |
 | [Architecture](openspec/docs/architecture.md) | Components, diagram, the `coedit` binary, git rules |
 | [Tech stack](openspec/docs/tech-stack.md) | Tools, packages, builds, Claude plugin, corporate setting |
 | [Install](openspec/docs/install.md) | Development install: build, `pnpm link:bin`, test vault |
@@ -83,7 +85,7 @@ pnpm add -g @fission-ai/openspec@latest
 ```
 openspec/
 ├── config.yaml        # OpenSpec settings and project context
-├── docs/              # Project-wide documents (architecture, tech stack, install)
+├── docs/              # Project-wide documents (vision, roadmap, architecture, tech stack, install, initial plan)
 ├── specs/             # The current specs. This is how the system works now.
 └── changes/           # Proposed changes. Each change has its own folder.
     └── archive/       # Completed changes

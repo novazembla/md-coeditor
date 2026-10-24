@@ -4,7 +4,8 @@ Session notes for the next person or agent session. Keep this file short. Replac
 
 - **Status, order and dependencies of all changes:** [openspec/docs/roadmap.md](openspec/docs/roadmap.md).
 - **Lasting decisions:** [architecture.md](openspec/docs/architecture.md), [tech-stack.md](openspec/docs/tech-stack.md), [CLAUDE.md](CLAUDE.md).
-- The initial plan `~/.claude/plans/zany-petting-starfish.md` is partly old. When it disagrees with the docs, the docs win.
+- **Purpose and value:** [vision.md](openspec/docs/vision.md).
+- The initial plan [initial-plan.md](openspec/docs/initial-plan.md) is frozen and partly old. When it disagrees with the other docs, the other docs win.
 
 ## Last session (2026-10-24)
 
@@ -19,7 +20,7 @@ Session notes for the next person or agent session. Keep this file short. Replac
 
 - The archive of `setup-monorepo` and the docs updates.
 - The new change `openspec/changes/add-insert-delete-format/`.
-- `roadmap.md`, `config.yaml` and this file.
+- `roadmap.md`, `vision.md`, `initial-plan.md` (moved from `~/.claude/plans/`), `config.yaml`, `CLAUDE.md`, `README.md` and this file.
 
 Ask the user before you commit.
 
@@ -44,6 +45,6 @@ Ask the user before you commit.
 - Simple language (ASD-STE100), extended with domain terms.
 - Do not create claude.ai assets unless the user asks.
 - Build incrementally: the smallest end-to-end slice first.
-- Use Sonnet subagents for mechanical work and research, where it fits.
+- Subagents: Sonnet for mechanical work, Opus for research and architecture (rule in `CLAUDE.md`).
 - Do not mention Dropbox in docs.
 - Windows support matters. The product must be usable in a company.

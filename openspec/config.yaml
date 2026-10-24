@@ -13,6 +13,8 @@ context: |
   Before you propose a change, read its entry in roadmap.md and use its name, scope and capabilities.
   If a change differs from the roadmap (scope, dependencies, capabilities), update roadmap.md in the same change.
   Project-wide guardrails are in openspec/docs/architecture.md and openspec/docs/tech-stack.md.
+  The purpose and value of the product are in openspec/docs/vision.md. A proposal must serve it; its Why section refers to it where it fits.
+  openspec/docs/initial-plan.md is frozen and partly old. Use it only for the detail of planned changes. When it disagrees with the other docs, the other docs win.
 
 # Per-artifact rules (optional)
 # Add custom rules for specific artifacts.
@@ -23,6 +25,17 @@ context: |
 #       - Always state what is out of scope
 #     tasks:
 #       - Break tasks into chunks of max 2 hours
+rules:
+  specs:
+    - Every requirement has at least one scenario with concrete input and expected output (for example the exact text before and after), not a general statement.
+    - Scenarios do not have to be Gherkin. WHEN/THEN bullets, tables of examples and measurable non-functional checks are all valid.
+    - Each requirement covers one rule, so that two changes rarely modify the same requirement.
+  design:
+    - Include a Tests section with the test strategy (test levels, tools, property tests, manual checks).
+  tasks:
+    - For each spec file, add a task for a spec test file with one test per scenario. Use the scenario names as the test names.
+    - Each task ends with a verification step ("Verify that ...").
+    - Manual or end-to-end checks for this change are separate tasks at the end.
 
 # Per-operation guidance (optional)
 # Add advisory guidance for how apply and archive work should be conducted.
