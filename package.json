@@ -1,0 +1,27 @@
+{
+	"name": "md-coeditor",
+	"private": true,
+	"type": "module",
+	"packageManager": "pnpm@12.15.0",
+	"engines": {
+		"node": ">=24.15"
+	},
+	"scripts": {
+		"build": "pnpm -r build",
+		"dev": "pnpm -r --parallel dev",
+		"test": "vitest run",
+		"typecheck": "pnpm -r typecheck",
+		"lint": "biome check .",
+		"format": "biome check --write .",
+		"check": "pnpm lint && pnpm typecheck && pnpm test",
+		"link:vault": "node scripts/link-test-vault.mjs",
+		"link:bin": "node scripts/link-bin.mjs"
+	},
+	"devDependencies": {
+		"@biomejs/biome": "^2.6.3",
+		"@types/node": "^24.19.2",
+		"esbuild": "^0.28.2",
+		"typescript": "^7.0.2",
+		"vitest": "^5.0.5"
+	}
+}

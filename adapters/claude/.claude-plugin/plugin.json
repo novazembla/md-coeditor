@@ -1,0 +1,9 @@
+{
+	"name": "md-coeditor",
+	"displayName": "MD-Coeditor",
+	"description": "Word-like track changes (CriticMarkup) in Obsidian, with Claude Code as a suggest-only co-editor.",
+	"author": {
+		"name": "Vincent Van Uffelen"
+	},
+	"defaultEnabled": false
+}

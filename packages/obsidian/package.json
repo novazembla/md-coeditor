@@ -1,0 +1,17 @@
+{
+	"name": "@md-coeditor/obsidian",
+	"version": "0.0.0",
+	"private": true,
+	"type": "module",
+	"scripts": {
+		"build": "node esbuild.config.mjs production",
+		"dev": "node esbuild.config.mjs",
+		"typecheck": "tsc -p . --noEmit"
+	},
+	"devDependencies": {
+		"@codemirror/state": "catalog:",
+		"@codemirror/view": "catalog:",
+		"jsdom": "catalog:",
+		"obsidian": "catalog:"
+	}
+}

@@ -1,0 +1,14 @@
+{
+	"name": "md-coeditor",
+	"description": "Local marketplace for the MD-Coeditor Claude Code plugin.",
+	"owner": {
+		"name": "Vincent Van Uffelen"
+	},
+	"plugins": [
+		{
+			"name": "md-coeditor",
+			"source": "./adapters/claude",
+			"description": "Word-like track changes (CriticMarkup) in Obsidian, with Claude Code as a suggest-only co-editor."
+		}
+	]
+}

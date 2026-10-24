@@ -1,0 +1,12 @@
+{
+	"name": "@md-coeditor/claude-plugin",
+	"version": "0.0.0",
+	"private": true,
+	"type": "module",
+	"scripts": {
+		"build": "node build.mjs"
+	},
+	"devDependencies": {
+		"@md-coeditor/bridge": "workspace:*"
+	}
+}

@@ -1,0 +1,9 @@
+{
+	"id": "md-coeditor",
+	"name": "MD-Coeditor",
+	"version": "0.0.0",
+	"minAppVersion": "1.14.4",
+	"description": "Collaborate with a coding agent to create or edit notes (tracking changes in CriticMarkup.",
+	"author": "Vincent Van Uffelen",
+	"isDesktopOnly": true
+}

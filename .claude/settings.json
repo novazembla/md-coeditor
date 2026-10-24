@@ -1,0 +1,52 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git stash list:*)",
+      "Bash(git stash show:*)"
+    ],
+    "deny": [
+      "Bash(git stash)",
+      "Bash(git stash push:*)",
+      "Bash(git stash save:*)",
+      "Bash(git stash create:*)",
+      "Bash(git stash store:*)"
+    ]
+  },
+  "enableAllProjectMcpServers": true,
+  "hooks": {
+    "SubagentStop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$CLAUDE_PROJECT_DIR/.claude/hooks/langfuse-flush.mjs\"",
+            "timeout": 15
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$CLAUDE_PROJECT_DIR/.claude/hooks/langfuse-flush.mjs\"",
+            "timeout": 30
+          }
+        ]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$CLAUDE_PROJECT_DIR/.claude/hooks/langfuse-flush.mjs\"",
+            "timeout": 30
+          }
+        ]
+      }
+    ]
+  },
+  "autoMemoryEnabled": false
+}
