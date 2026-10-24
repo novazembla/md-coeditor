@@ -5,6 +5,9 @@ packages:
 
 allowBuilds:
   esbuild: true
+  classic-level: true
+  edgedriver: false
+  geckodriver: false
 
 catalog:
   fast-check: ^4.10.2

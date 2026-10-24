@@ -200,7 +200,7 @@ describe("Edits keep the mark syntax whole", () => {
 		expect(view.state.doc.toString()).toBe('The {id="a1"++small ++}cat.');
 	});
 	test.todo(
-		"Changes from outside the editor are not filtered: in the Obsidian app (manual test 11.5)",
+		"Changes from outside the editor are not filtered: e2e in packages/e2e/tests/reload.e2e.ts",
 	);
 });
 
@@ -215,9 +215,7 @@ describe("Author and date on hover", () => {
 		);
 		expect(readingSpans(el)[0]?.label).toBe("Claude, 2026-10-24");
 	});
-	test.todo(
-		"Author and date: the hover display in the Obsidian app (manual test 11.3)",
-	);
+	test.todo("Author and date: e2e in packages/e2e/tests/hover.e2e.ts");
 
 	test("No attributes", () => {
 		const view = makeView("The {++big ++}cat.");
@@ -225,9 +223,7 @@ describe("Author and date on hover", () => {
 		const el = section("<p>The {++big ++}cat.</p>");
 		expect(readingSpans(el)[0]?.label).toBe("Unknown author");
 	});
-	test.todo(
-		"No attributes: the hover display in the Obsidian app (manual test 11.3)",
-	);
+	test.todo("No attributes: e2e in packages/e2e/tests/hover.e2e.ts");
 });
 
 describe("Reading view shows the changes", () => {
@@ -260,7 +256,7 @@ describe("Reading view has no decisions", () => {
 		expect(el.querySelector("button, [role=menuitem]")).toBeNull();
 	});
 	test.todo(
-		"Right-click in Reading view: the menu in the Obsidian app (manual test 11.5)",
+		"Right-click in Reading view: e2e in packages/e2e/tests/menu.e2e.ts",
 	);
 });
 
@@ -336,23 +332,21 @@ describe("Go to the next or previous change", () => {
 		expect(NO_CHANGES_NOTICE).toBe("No changes in this note.");
 		expect(head(view)).toBe(3);
 	});
-	test.todo(
-		"No changes: the notice display in the Obsidian app (manual test 11.3)",
-	);
+	test.todo("No changes: e2e in packages/e2e/tests/notices.e2e.ts");
 });
 
-describe("Live Preview in the Obsidian app", () => {
+describe("In the Obsidian app (e2e)", () => {
 	test.todo(
-		"Insertion with attributes: in the Obsidian app (manual test 11.3)",
+		"Insertion with attributes: e2e in packages/e2e/tests/cursor.e2e.ts",
 	);
 	test.todo(
-		"Arrow key over the hidden prefix: in the Obsidian app (manual test 11.3)",
+		"Arrow key over the hidden prefix: e2e in packages/e2e/tests/cursor.e2e.ts",
 	);
 	test.todo(
-		"Backspace at the start of an insertion: in the Obsidian app (manual test 11.3)",
+		"Backspace at the start of an insertion: e2e in packages/e2e/tests/cursor.e2e.ts",
 	);
 	test.todo(
-		"Insertion and deletion in Reading view: in the Obsidian app (manual test 11.5)",
+		"Insertion and deletion in Reading view: e2e in packages/e2e/tests/modes.e2e.ts",
 	);
-	test.todo("Raw mark in Source mode: in the Obsidian app (manual test 11.5)");
+	test.todo("Raw mark in Source mode: e2e in packages/e2e/tests/modes.e2e.ts");
 });

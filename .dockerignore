@@ -1,0 +1,10 @@
+# Docker build context for packages/e2e/docker/Dockerfile.
+**/node_modules
+**/dist
+**/.obsidian-cache
+.git
+.claude
+.env
+test-vault
+**/*.tsbuildinfo
+**/.DS_Store

@@ -57,7 +57,7 @@ describe("Accept and reject the change at the cursor", () => {
 		expect(text(v)).toBe("The dog sat.");
 	});
 	test.todo(
-		"Accept with the cursor inside an insertion: the command palette in the Obsidian app (manual test 11.4)",
+		"Accept with the cursor inside an insertion: e2e in packages/e2e/tests/palette.e2e.ts",
 	);
 });
 
@@ -72,18 +72,14 @@ describe("Decisions from the right-click menu", () => {
 		runDecision(v, pos as number, "reject");
 		expect(text(v)).toBe("The cat.");
 	});
-	test.todo(
-		"Reject from the menu: the menu display in the Obsidian app (manual test 11.4)",
-	);
+	test.todo("Reject from the menu: e2e in packages/e2e/tests/menu.e2e.ts");
 
 	test("Right-click on plain text", () => {
 		const v = view('The {id="a1"++big ++}cat.');
 		rightClick(v.contentDOM.querySelector(".cm-line") as Element);
 		expect(menuPos(v.state)).toBeNull();
 	});
-	test.todo(
-		"Right-click on plain text: the menu display in the Obsidian app (manual test 11.4)",
-	);
+	test.todo("Right-click on plain text: e2e in packages/e2e/tests/menu.e2e.ts");
 });
 
 describe("A mark without an id gets one when it is decided", () => {
@@ -145,9 +141,7 @@ describe("Decisions that cannot be made show a notice", () => {
 		expect(NO_CHANGE_NOTICE).toBe("No change at the cursor.");
 		expect(text(v)).toBe(doc);
 	});
-	test.todo(
-		"No mark at the cursor: the notice display in the Obsidian app (manual test 11.4)",
-	);
+	test.todo("No mark at the cursor: e2e in packages/e2e/tests/notices.e2e.ts");
 
 	test("Substitution at the cursor", () => {
 		const doc = "A {~~c|at~>dog~~} sat.";
@@ -159,7 +153,7 @@ describe("Decisions that cannot be made show a notice", () => {
 		expect(text(v)).toBe(before0);
 	});
 	test.todo(
-		"Substitution at the cursor: the notice display in the Obsidian app (manual test 11.4)",
+		"Substitution at the cursor: e2e in packages/e2e/tests/notices.e2e.ts",
 	);
 });
 
@@ -169,9 +163,7 @@ describe("Decisions only in Live Preview", () => {
 		expect(isLivePreview(view("The {++big ++}cat.", false).state)).toBe(false);
 		expect(isLivePreview(view("The {++big ++}cat.").state)).toBe(true);
 	});
-	test.todo(
-		"Source mode: the command palette in the Obsidian app (manual test 11.5)",
-	);
+	test.todo("Source mode: e2e in packages/e2e/tests/palette.e2e.ts");
 });
 
 describe("markAt helper", () => {

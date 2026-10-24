@@ -20,6 +20,7 @@ Scope: Claude Code only. Codex is deferred, because we have no access to it. The
 | Schemas | zod, in `packages/protocol` | One contract for both ends. The MCP SDK also uses zod. |
 | CLI arguments | `node:util` `parseArgs` | No package needed for a few subcommands. |
 | Tests | vitest. jsdom for the CodeMirror 6 tests. `fast-check` (^4.10.2, in the catalog) for property tests in `packages/format`. | Fast, TypeScript without a build. Property tests find edge cases of the parser (round trip) that example tests miss. |
+| End-to-end tests | WebdriverIO 9 + mocha + `wdio-obsidian-service`, in `packages/e2e`. See [testing.md](testing.md). | jsdom has no layout and no Obsidian. The service runs a pinned Obsidian version with the plugin build. wdio does not support vitest, so the e2e tests use mocha. |
 | Lint and format | Biome | One tool instead of ESLint + Prettier. Add `eslint-plugin-obsidianmd` only if we publish to the Obsidian community store. |
 
 ## Repo layout
@@ -36,7 +37,8 @@ md-coeditor/
 │   ├── format/               # @md-coeditor/format
 │   ├── protocol/             # @md-coeditor/protocol
 │   ├── obsidian/             # Obsidian plugin
-│   └── bridge/               # @md-coeditor/bridge → binary "coedit"
+│   ├── bridge/               # @md-coeditor/bridge → binary "coedit"
+│   └── e2e/                  # @md-coeditor/e2e: end-to-end tests in the real Obsidian app
 ├── adapters/
 │   └── claude/               # Claude Code plugin
 ├── spikes/                   # S1, S2. Throwaway. Delete when done.
@@ -54,6 +56,7 @@ md-coeditor/
 | `packages/obsidian` | Obsidian plugin: CodeMirror 6 extension, commands, hub, log writer. | `format`, `protocol` |
 | `packages/bridge` | The `coedit` binary: subcommands `mcp`, `inbox`, `claude`, `init`. | `format`, `protocol` |
 | `adapters/claude` | Claude Code plugin: manifest, MCP config, hooks, agent definition. | the `coedit` bundle |
+| `packages/e2e` | End-to-end tests: wdio config, helpers, fixture vault, `tests/*.e2e.ts`. No `exports`, no build. | the plugin build in `packages/obsidian/dist` |
 
 ### Internal packages
 
@@ -66,7 +69,7 @@ md-coeditor/
 - **One place for versions.** Shared tools are root devDependencies. Package-specific versions are in the `catalog:` in `pnpm-workspace.yaml`. Do not write a version into a package's `package.json`.
 - **CodeMirror versions.** The catalog pins `@codemirror/state` and `@codemirror/view` to the exact versions that the `obsidian` package declares as peers. When you update `obsidian`, check them again.
 - **pnpm 12 settings** in `pnpm-workspace.yaml`:
-  - `allowBuilds: { esbuild: true }`. pnpm 12 blocks install scripts by default, and esbuild needs its install script.
+  - `allowBuilds`: `esbuild: true` and `classic-level: true` (needed by `wdio-obsidian-service`); `edgedriver: false` and `geckodriver: false` (browser drivers that the e2e tests do not use). pnpm 12 blocks install scripts by default.
   - `minimumReleaseAgeExclude` lists `@biomejs/biome` and its `@biomejs/cli-*` platform packages with exact versions. When you update Biome, update or remove these entries.
 - **TypeScript 7** (native compiler). If the `obsidian` types or other types fail with it, fall back to `typescript@6`. Only the type check uses `tsc`.
 - **Node.** `.node-version` is `24`. The ranges also accept Node 26. A later change moves the development default to 26.
@@ -88,7 +91,9 @@ md-coeditor/
 |---|---|
 | `pnpm build` | Builds all packages (`pnpm -r build`). |
 | `pnpm dev` | Runs all builds in watch mode. |
-| `pnpm test` | Runs all tests (vitest). |
+| `pnpm test` | Runs all vitest tests. Not the e2e tests. |
+| `pnpm test:e2e` | Builds the plugin, then runs the end-to-end tests in Obsidian on this machine. Not in `pnpm check`: slow, needs a display, and takes the desktop focus. See [testing.md](testing.md). |
+| `pnpm test:e2e:docker` | Runs the end-to-end tests in Linux in Docker with a virtual display (no window). Needs Docker. See [testing.md](testing.md). |
 | `pnpm typecheck` | Runs `tsc --noEmit` in each package. |
 | `pnpm lint` | Runs `biome check .`. |
 | `pnpm format` | Runs `biome check --write .`. |
@@ -177,6 +182,18 @@ md-coeditor/
 - A company can also list the npm package in its own marketplace.
 
 Phase 3 (optional): a true single binary (`bun build --compile` or Node SEA).
+
+## End-to-end tests
+
+Details: [testing.md](testing.md). In short:
+
+- **Second test runner.** WebdriverIO 9 with mocha, because the tests must run in the real Obsidian app and wdio does not support vitest. vitest stays the main level.
+- **Version pins.** The app version is the plugin's `minAppVersion` (read from `packages/obsidian/manifest.json`). The installer version is pinned (`1.14.4`) in `packages/e2e/wdio.conf.mts`.
+- **Cache.** The first run downloads Obsidian to `packages/e2e/.obsidian-cache/` (ignored by git).
+- **Rules.** Test names are the spec scenario names. `modKey()` for Cmd or Ctrl. No fixed sleeps. DOM menus (`nativeMenus: false`).
+- **Focus.** A local run opens Obsidian windows that take the keyboard focus. Do not type during a run.
+- **Docker.** `pnpm test:e2e:docker` runs the same tests in Linux (`node:24-bookworm` + xvfb), with no window. It is the everyday run; the macOS run stays before each archive.
+- **Strong default.** A change to the plugin adds e2e tests for the behaviour that needs the real app (rules in `openspec/config.yaml` and [testing.md](testing.md)).
 
 ## Not now
 

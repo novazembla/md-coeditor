@@ -1,0 +1,11 @@
+{
+	"nativeMenus": false,
+	"livePreview": true,
+	"defaultViewMode": "source",
+	"vimMode": false,
+	"autoPairBrackets": false,
+	"autoPairMarkdown": false,
+	"smartIndentList": false,
+	"spellcheck": false,
+	"promptDelete": false
+}

@@ -222,7 +222,7 @@ All editor logic is plain CodeMirror 6 code in `packages/obsidian/src`, so it ru
 
 ### Right-click menu
 
-Obsidian's `editor-menu` event does not give the mouse position. A `contextmenu` handler stores the start of the change span under the pointer (null when the pointer is not on a change span), and `editor-menu` adds "Accept change" and "Reject change" only for that position. A click on plain text next to a mark does not show the items. On macOS the menu is native, so end-to-end tests must read the menu object, not the DOM.
+Obsidian's `editor-menu` event does not give the mouse position. A `contextmenu` handler stores the start of the change span under the pointer (null when the pointer is not on a change span), and `editor-menu` adds "Accept change" and "Reject change" only for that position. A click on plain text next to a mark does not show the items. On macOS the menu is native by default, so the DOM does not show it. The end-to-end tests set `nativeMenus: false` in the fixture vault: the menu is then a DOM `.menu` on all systems, and the tests right-click, read the item titles and click an item (change 12, design D4). The plugin adds its items to Obsidian's `Menu` object in both cases, so the plugin code path is the same. The native display is Obsidian's code; one manual look at it stays in the manual list ([testing.md](testing.md)).
 
 ### Reading view
 

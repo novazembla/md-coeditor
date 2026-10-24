@@ -26,7 +26,7 @@ Updated 2026-10-24.
 | 0 | `setup-monorepo` | 0 | archived | `openspec/changes/archive/2026-10-24-setup-monorepo/`. |
 | 1 | `add-insert-delete-format` | 1 | archived | `openspec/changes/archive/2026-10-24-add-insert-delete-format/`. Follow-ups: see "Follow-ups from change 1". |
 | 2 | `add-obsidian-review-basics` | 1 | archived | `openspec/changes/archive/2026-10-24-add-obsidian-review-basics/`. Windows check not done (see Open checks). |
-| 12 | `add-obsidian-e2e-tests` | 1 | planned | Squeezed in after 2, before 3. Number 12 because 3 to 11 are referenced elsewhere. |
+| 12 | `add-obsidian-e2e-tests` | 1 | archived | `openspec/changes/archive/2026-10-24-add-obsidian-e2e-tests/`. Test setup: [testing.md](testing.md). Windows run not done (see Open checks). |
 | 3 | `add-claude-suggest-loop` | 1 | planned | |
 | 4 | `add-agent-push` | later | planned | Needs spike S2. |
 | 5 | `add-substitution-and-comments` | later | planned | |
@@ -65,11 +65,11 @@ The changes are in sequence, in this order: 1, 2, 12, 3. Each one builds on the 
 
 ### 12. `add-obsidian-e2e-tests`
 
-- **Scope:** end-to-end tests in the real Obsidian app with [wdio-obsidian-service](https://github.com/jesse-r-s-hines/wdio-obsidian-service) (WebdriverIO). It downloads a pinned Obsidian version, opens a copy of `test-vault/`, loads the built plugin, and runs the tests. A root script `pnpm test:e2e`, not part of `pnpm check` (it is slow and needs a display). First tests: the manual checks of change 2 that jsdom cannot do (cursor motion over hidden syntax with real layout, the right-click menu, the command palette in each mode, notices, file reload from disk, Reading view). Later changes add their own end-to-end tests here, also the slice 1 end-to-end test.
+- **Scope:** end-to-end tests in the real Obsidian app with [wdio-obsidian-service](https://github.com/jesse-r-s-hines/wdio-obsidian-service) (WebdriverIO, mocha), in a new package `packages/e2e`. It downloads a pinned Obsidian version, opens a copy of a fixture vault in `packages/e2e/vault/` (not `test-vault/`), loads the built plugin, and runs the tests. A root script `pnpm test:e2e`, not part of `pnpm check` (it is slow and needs a display). First tests: the manual checks of change 2 that jsdom cannot do (cursor motion over hidden syntax with real layout, the right-click menu, the command palette in each mode, notices, file reload from disk, Reading view). Later changes add their own end-to-end tests here, also the slice 1 end-to-end test. From this change on, e2e tests are the strong default for plugin behaviour (rules in `openspec/config.yaml`).
 - **Why:** jsdom has no layout and no Obsidian. In change 2, a real bug (two key presses at a mark edge) passed all unit tests. Manual checks are slow and do not repeat.
 - **Depends on:** 2.
-- **Capabilities:** none (test tooling only). Check in the proposal whether a test-only change needs a spec.
-- **Open points:** Windows runs (CI or the user's machine); the Obsidian version to pin (the same as `minAppVersion` and the `obsidian` types).
+- **Capabilities:** none (test tooling only). The change sets `skip_specs: true`: it adds tests for the scenarios of `markup-rendering` and `change-decisions`, and no behaviour changes.
+- **Open points (answered):** Linux runs in Docker with a virtual display (`pnpm test:e2e:docker`, added during apply), so a run needs no window. Windows runs are not in this change; the tests are written so that they need config changes only (open check). The pinned version is the plugin's `minAppVersion` (1.14.4), with the installer 1.14.4. Details: [testing.md](testing.md).
 
 ### 3. `add-claude-suggest-loop`
 
@@ -145,7 +145,8 @@ Spikes stay outside OpenSpec in `spikes/`, as throwaway code. They do not block 
 | A plugin with `defaultEnabled: false` stays off at user scope, and `--settings` switches it on for one session (marketplace id and `@inline`). | S2 or change 3 |
 | Which channel flag value works for each load method (`plugin:md-coeditor@md-coeditor`, `plugin:md-coeditor@inline`, `server:…`). | S2 |
 | The esbuild ESM bundle of the MCP SDK runs. Alternative: import only the stdio subpaths, or bundle as CommonJS. | Change 3, first task |
-| Everything works on Windows. There is no Windows machine here. Not done yet for change 2 (`add-obsidian-review-basics`, task 11.6 open at archive). Change 12 can run it with `wdio-obsidian-service`. | Manual, by the user |
+| Everything works on Windows. There is no Windows machine here. Not done yet for change 2 (`add-obsidian-review-basics`, task 11.6 open at archive). The tool to close it: the e2e tests of change 12 (`pnpm test:e2e` on a Windows machine), plus the manual list in [testing.md](testing.md). | Manual, by the user |
+| The e2e tests (`pnpm test:e2e`) run on Windows. Change 12 runs them on macOS and on Linux in Docker (`pnpm test:e2e:docker`). | User's Windows machine, or a later CI change |
 | Structural edits, IME, Vim mode and auto-pair in live tracking. | S1 |
 
 ### Closed checks
@@ -163,7 +164,7 @@ The planned spec folders and the changes that touch them.
 | `coedit-cli` | yes | 0, 3, 8 |
 | `markup-format` | yes | 1, 2, 5, 7, 9 |
 | `change-decisions` | yes | 1, 2, 3, 5 |
-| `markup-rendering` | yes | 2, 5, 6, 7, 10, 12 |
+| `markup-rendering` | yes | 2, 5, 6, 7, 10 |
 | `note-attachment` | no | 3 |
 | `vault-hub` | no | 3, 4, 11 |
 | `event-log` | no | 3, 8, 9 |

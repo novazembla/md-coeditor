@@ -4,6 +4,8 @@ export default defineConfig({
 	test: {
 		projects: [
 			"packages/*",
+			// End-to-end tests run in the real Obsidian app: pnpm test:e2e.
+			"!packages/e2e",
 			"adapters/*",
 			{
 				test: {

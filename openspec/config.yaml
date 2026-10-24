@@ -32,10 +32,13 @@ rules:
     - Each requirement covers one rule, so that two changes rarely modify the same requirement.
   design:
     - Include a Tests section with the test strategy (test levels, tools, property tests, manual checks).
+    - If the change touches packages/obsidian or what the user sees or does in Obsidian, the Tests section lists the scenarios that need the real app (layout, cursor and keys, menus, command palette, notices, Reading view, Source mode, files on disk, hover) and gives each one an e2e test in packages/e2e. End-to-end tests are the strong default for this behaviour; a scenario that stays manual (for example colours) needs a reason. See openspec/docs/testing.md.
   tasks:
     - For each spec file, add a task for a spec test file with one test per scenario. Use the scenario names as the test names.
     - Each task ends with a verification step ("Verify that ...").
     - Manual or end-to-end checks for this change are separate tasks at the end.
+    - 'For each scenario that needs the real Obsidian app, add a task for an e2e test in packages/e2e/tests (it name = scenario name) and change the matching vitest test.todo to a pointer ("<scenario>: e2e in packages/e2e/tests/<file>.e2e.ts").'
+    - If the change touches packages/obsidian, add a task that runs pnpm test:e2e:docker (all e2e tests pass), and before archive a task that runs pnpm test:e2e on macOS.
 
 # Per-operation guidance (optional)
 # Add advisory guidance for how apply and archive work should be conducted.
