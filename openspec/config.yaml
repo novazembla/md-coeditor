@@ -8,6 +8,11 @@ schema: spec-driven
 #   context: |
 #     Designs and tasks must cover Windows, macOS, and Linux
 #     Write all artifacts in Spanish
+context: |
+  The big picture is in openspec/docs/roadmap.md: slices, changes, order, dependencies, capabilities and status.
+  Before you propose a change, read its entry in roadmap.md and use its name, scope and capabilities.
+  If a change differs from the roadmap (scope, dependencies, capabilities), update roadmap.md in the same change.
+  Project-wide guardrails are in openspec/docs/architecture.md and openspec/docs/tech-stack.md.
 
 # Per-artifact rules (optional)
 # Add custom rules for specific artifacts.
@@ -31,6 +36,10 @@ schema: spec-driven
 #       guidance:
 #         - Summarize the archive outcome before finishing
 operations:
+  apply:
+    guidance:
+      - When apply starts, set the change status in openspec/docs/roadmap.md to "applying".
   archive:
     guidance:
       - Before archive, copy important lasting design decisions from design.md into openspec/docs/. E.g into architecture.md or tech-stack.md to act as non-funcitonal guardrails.
+      - After archive, set the change status in openspec/docs/roadmap.md to "archived" and update the "Main spec exists" column.

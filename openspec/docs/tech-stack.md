@@ -61,6 +61,17 @@ md-coeditor/
 - Internal packages have no build step. The bundles (plugin, bridge) and vitest compile them.
 - `tsconfig.base.json` uses `"moduleResolution": "bundler"` and `"verbatimModuleSyntax": true`.
 
+### Versions and tool settings
+
+- **One place for versions.** Shared tools are root devDependencies. Package-specific versions are in the `catalog:` in `pnpm-workspace.yaml`. Do not write a version into a package's `package.json`.
+- **CodeMirror versions.** The catalog pins `@codemirror/state` and `@codemirror/view` to the exact versions that the `obsidian` package declares as peers. When you update `obsidian`, check them again.
+- **pnpm 12 settings** in `pnpm-workspace.yaml`:
+  - `allowBuilds: { esbuild: true }`. pnpm 12 blocks install scripts by default, and esbuild needs its install script.
+  - `minimumReleaseAgeExclude` lists `@biomejs/biome` and its `@biomejs/cli-*` platform packages with exact versions. When you update Biome, update or remove these entries.
+- **TypeScript 7** (native compiler). If the `obsidian` types or other types fail with it, fall back to `typescript@6`. Only the type check uses `tsc`.
+- **Node.** `.node-version` is `24`. The ranges also accept Node 26. A later change moves the development default to 26.
+- **Biome does not check Markdown.** Biome 2.6 formats Markdown and changes content (for example `@codemirror/*` becomes `@codemirror/_`). So `biome.json` ignores `**/*.md`.
+
 ## Builds
 
 | Output | Tool and settings | Notes |
@@ -95,6 +106,7 @@ md-coeditor/
 ## Obsidian plugin
 
 - `manifest.json` has `"isDesktopOnly": true`. The plugin uses Node APIs (`http`, `fs`).
+- `minAppVersion` must not be higher than the Obsidian app on the developer's machine. Use the lower of the installed app version and the `obsidian` types version.
 - The CodeMirror 6 tests use the same `@codemirror/*` versions as Obsidian. They are devDependencies only.
 - Development loop: esbuild in watch mode, and the "Hot Reload" community plugin in the test vault. `coedit init --dev` links the plugin folder to `packages/obsidian/dist`.
 
@@ -112,6 +124,7 @@ adapters/claude/
 - **Self-contained.** When Claude Code installs a plugin from a marketplace, it copies only the plugin folder. Files outside the folder are not available. So the bridge bundle goes into `dist/` inside the plugin.
 - **No `bin/` folder.** Claude Code puts a plugin's `bin/` on the PATH of the Bash tool. The agent could then run `coedit inbox --mark-read` itself and move the cursor.
 - **`defaultEnabled: false`.** The plugin never switches on by itself, at any scope.
+- **No `version` field** in `plugin.json`. A fixed version pins marketplace installs. The validator warning "No version specified" is expected.
 
 ### How a session loads the plugin
 
@@ -123,6 +136,8 @@ adapters/claude/
 | The plugin is not installed | `claude --plugin-dir <bundled plugin> --settings '{"enabledPlugins":{"md-coeditor@inline":true}}'` |
 
 `defaultEnabled: false` also applies to `--plugin-dir`. So the launcher must pass the `--settings` value in both cases.
+
+On Windows, `claude` can be `claude.exe` (native installer) or `claude.cmd` (npm). Node can start a `.cmd` file only with a shell. The launcher must handle both.
 
 Later, for push, the launcher also adds `--dangerously-load-development-channels plugin:<id>` (spike S2).
 

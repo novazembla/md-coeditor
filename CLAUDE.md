@@ -4,8 +4,8 @@ Unless asked otherwise, use simple language. Follow ASD-STE100, but extend the v
 
 ## Project
 md-coeditor: Word-like track changes (CriticMarkup) in Obsidian + interactive Claude Code session in a terminal. CLI binary: `coedit`.
-Status: monorepo skeleton only (setup-monorepo); no product features yet. Scope: Claude Code only; Codex deferred (no access), keep design agent-neutral.
-Docs: openspec/docs/{architecture,tech-stack,install}.md. Plan: ~/.claude/plans/zany-petting-starfish.md (older; docs win on conflict).
+Status: see openspec/docs/roadmap.md. Scope: Claude Code only; Codex deferred (no access), keep design agent-neutral.
+Docs: openspec/docs/{roadmap,architecture,tech-stack,install}.md (roadmap = slices, changes, status). Plan: ~/.claude/plans/zany-petting-starfish.md (older; docs win on conflict).
 
 ## Stack
 - pnpm 12 workspaces (`packageManager` pnpm@12.15.0, `catalog:` for shared versions); no Turbo/Nx. TypeScript strict, ESM. Node >=24.15 for dev (jsdom 30), >=24 for `coedit` runtime. No Bun.

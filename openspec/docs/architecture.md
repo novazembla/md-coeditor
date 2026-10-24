@@ -1,6 +1,6 @@
 # MD-Coeditor architecture
 
-This document shows the parts of MD-Coeditor and how they connect. It is the overview for all changes. The full plan is in `zany-petting-starfish.md` (outside this repo). For tools and builds, see [tech-stack.md](tech-stack.md).
+This document shows the parts of MD-Coeditor and how they connect. It is the overview for all changes. For the order and status of the changes, see [roadmap.md](roadmap.md). The full plan is in `zany-petting-starfish.md` (outside this repo). For tools and builds, see [tech-stack.md](tech-stack.md).
 
 Status: accepted on 2026-10-24. Slice 1 parts use solid lines. Later parts use dashed lines.
 
@@ -99,6 +99,12 @@ Claude Code can connect to an MCP server over HTTP. So Obsidian could serve the 
 | `coedit claude [--doc note.md]` | You, or the Obsidian command "Start co-editor" | Finds the vault and the Claude plugin. Attaches the note. Starts `claude` with the plugin switched on for this session only. |
 | `coedit inbox --digest --mark-read` | The `UserPromptSubmit` hook | Reads the log from disk, makes the digest, moves the cursor. Works when Obsidian is closed. |
 | `coedit mcp` | Claude Code | The bridge. Offers the MCP tools over stdio and sends each call to the hub. |
+
+CLI rules:
+
+- **Exit codes.** 0 success, 1 runtime error, 2 usage error.
+- **Subcommand registry.** Each subcommand has a name, a one-line description and a handler. The help text is made from the registry. A new subcommand is a new registry entry.
+- **Testable entry.** `src/cli.ts` only calls `run(argv, io)`. `io` contains `stdout`, `stderr` and the version, so tests can pass fakes.
 
 ### `coedit init`
 
