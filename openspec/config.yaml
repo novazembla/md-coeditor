@@ -33,4 +33,4 @@ schema: spec-driven
 operations:
   archive:
     guidance:
-      - Before archive, copy lasting design decisions from design.md into openspec/docs/ (architecture.md, tech-stack.md) to act as non-funcitonal guardrails.
+      - Before archive, copy important lasting design decisions from design.md into openspec/docs/. E.g into architecture.md or tech-stack.md to act as non-funcitonal guardrails.
