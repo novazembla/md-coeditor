@@ -310,5 +310,5 @@ From change 3. One JSON Lines file for each machine: `.coedit/local/<machine>/lo
 
 - **Renames.** Obsidian fires one `rename` event for a renamed folder (at that moment the files below still have their old paths), then one event for each file below it. The plugin ignores the folder event and logs one `rename` for each Markdown file. Every Markdown rename is logged, so readers need no other state.
 - **Mark identity.** A mark id is unique only inside one note. A copied note or a template can hold the same id. So every reader keys a mark by (note path, id), and the note path follows the `rename` events.
-- **Latest event wins.** For one mark, readers use the latest event that sets its state. In this change that is the `decision` event. Change 9 adds more such event types under the same rule.
+- **Latest event wins.** For one mark, readers use the latest event that sets its state. In this change that is the `decision` event. Change 16 (`add-mark-lifecycle-events`) adds more such event types under the same rule.
 - **Not detected yet** (change 9): an undo of a decision, an undo of a suggestion, a mark deleted by hand.
