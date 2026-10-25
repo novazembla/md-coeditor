@@ -60,7 +60,9 @@ export type ZoneKind =
 	| "fenced-code"
 	| "indented-code"
 	| "inline-code"
-	| "table";
+	| "table"
+	| "wikilink"
+	| "callout-marker";
 
 export interface Zone {
 	kind: ZoneKind;
@@ -83,7 +85,8 @@ export interface ParsedNote {
 	duplicateIds: string[];
 }
 
-export type ErrorCode =
+/** Refusal codes of `suggest`. */
+export type SuggestErrorCode =
 	| "empty_find"
 	| "no_change"
 	| "line_break"
@@ -94,9 +97,24 @@ export type ErrorCode =
 	| "overlaps_mark"
 	| "protected_zone"
 	| "structural_edit"
-	| "unsafe_result"
-	| "duplicate_id"
-	| "unsupported_kind";
+	| "unsafe_result";
+
+/** Refusal codes of `decide`. */
+export type DecideErrorCode = "not_found" | "duplicate_id" | "unsupported_kind";
+
+/** All refusal codes, for callers that do not care which function refused. */
+export type ErrorCode = SuggestErrorCode | DecideErrorCode;
+
+/**
+ * Extra facts about a refusal:
+ * - `ambiguous`: `{ matches }`, the number of matches.
+ * - `protected_zone`: `{ zone }`, the kind of the zone that the match overlaps.
+ * - `overlaps_mark`: `{ ids }`, the ids of the pending marks that the match overlaps.
+ */
+export type RefusalDetails =
+	| { matches: number }
+	| { zone: ZoneKind }
+	| { ids: string[] };
 
 /**
  * One edit to a text. `from` and `to` are positions in the text before the
@@ -113,4 +131,7 @@ export type Result<
 	T extends {
 		[K in keyof T]: K extends "ok" | "code" | "message" ? never : unknown;
 	},
-> = ({ ok: true } & T) | { ok: false; code: ErrorCode; message: string };
+	C extends ErrorCode = ErrorCode,
+> =
+	| ({ ok: true } & T)
+	| { ok: false; code: C; message: string; details?: RefusalDetails };

@@ -210,6 +210,74 @@ describe("Protected zones", () => {
 		expect(p.marks).toHaveLength(1);
 		expect(p.marks[0]?.content).toBe("run `make`");
 	});
+	it("Wikilink", () => {
+		const t = "See [[Project plan|the plan]] today.";
+		const p = parse(t);
+		expect(p.zones.map((z) => z.kind)).toEqual(["wikilink"]);
+		expect(t.slice(p.zones[0]?.start, p.zones[0]?.end)).toBe(
+			"[[Project plan|the plan]]",
+		);
+	});
+	it("Embed", () => {
+		const t = "![[diagram.png]]";
+		const p = parse(t);
+		expect(p.zones).toEqual([{ kind: "wikilink", start: 0, end: t.length }]);
+	});
+	it("Callout marker", () => {
+		const t = "> [!note]- Read this";
+		const p = parse(t);
+		expect(p.zones).toEqual([{ kind: "callout-marker", start: 2, end: 10 }]);
+		expect(t.slice(2, 10)).toBe("[!note]-");
+	});
+	it("Escaped backticks", () => {
+		const p = parse("a \\` b {++x++} \\` c");
+		expect(p.marks).toHaveLength(1);
+		expect(p.marks[0]?.content).toBe("x");
+	});
+	it("Backslash at the end of inline code", () => {
+		const t = "Run `cd C:\\` then {++x++}";
+		const p = parse(t);
+		expect(p.zones).toHaveLength(1);
+		expect(p.zones[0]?.kind).toBe("inline-code");
+		expect(t.slice(p.zones[0]?.start, p.zones[0]?.end)).toBe("`cd C:\\`");
+		expect(p.marks).toHaveLength(1);
+		expect(p.marks[0]?.content).toBe("x");
+	});
+});
+
+describe("Refusals carry details", () => {
+	const run = (text: string, find: string, replace: string) =>
+		suggest(text, {
+			find,
+			replace,
+			author: "Claude",
+			date: "2026-10-24",
+		});
+	it("Three matches", () => {
+		const r = run("cat, cat, cat", "cat", "dog");
+		expect(r).toMatchObject({
+			ok: false,
+			code: "ambiguous",
+			details: { matches: 3 },
+		});
+		expect(!r.ok && r.message).toContain("3");
+	});
+	it("Match in a wikilink", () => {
+		expect(run("See [[Project plan]].", "Project plan", "Plan")).toMatchObject({
+			ok: false,
+			code: "protected_zone",
+			details: { zone: "wikilink" },
+		});
+	});
+	it("Match overlaps a pending mark", () => {
+		const r = run('The {id="i1bbbb"++big ++}cat.', "big cat", "cat");
+		expect(r).toMatchObject({
+			ok: false,
+			code: "overlaps_mark",
+			details: { ids: ["i1bbbb"] },
+		});
+		expect(!r.ok && r.message).toContain("i1bbbb");
+	});
 });
 
 describe("Unique mark ids", () => {

@@ -2,7 +2,15 @@ import { freeId, newId as randomId } from "./ids";
 import { parse } from "./parse";
 import { project } from "./project";
 import { writeMark } from "./serialize";
-import type { Change, ErrorCode, Mark, ParsedNote, Result } from "./types";
+import type {
+	Change,
+	Mark,
+	ParsedNote,
+	RefusalDetails,
+	Result,
+	SuggestErrorCode,
+	ZoneKind,
+} from "./types";
 import { splitLines } from "./zones";
 
 export interface SuggestInput {
@@ -19,12 +27,15 @@ export interface SuggestInput {
 	newId?: () => string;
 }
 
-export type SuggestResult = Result<{
-	text: string;
-	/** Edits to the input text. Applying them gives `text`. */
-	changes: Change[];
-	marks: Mark[];
-}>;
+export type SuggestResult = Result<
+	{
+		text: string;
+		/** Edits to the input text. Applying them gives `text`. */
+		changes: Change[];
+		marks: Mark[];
+	},
+	SuggestErrorCode
+>;
 
 /** True for a real date `YYYY-MM-DD` (leap years included). */
 function isCalendarDate(date: string): boolean {
@@ -59,8 +70,14 @@ const BLOCK_PREFIX =
 const isSpace = (ch: string | undefined): boolean =>
 	ch === undefined || /\s/.test(ch);
 
-function fail(code: ErrorCode, message: string): SuggestResult {
-	return { ok: false, code, message };
+function fail(
+	code: SuggestErrorCode,
+	message: string,
+	details?: RefusalDetails,
+): SuggestResult {
+	return details
+		? { ok: false, code, message, details }
+		: { ok: false, code, message };
 }
 
 function blockPrefix(line: string): string {
@@ -110,7 +127,7 @@ export function suggest(text: string, input: SuggestInput): SuggestResult {
 		viewStart: number;
 		viewEnd: number;
 	}[] = [];
-	let hitZone = false;
+	let hitZone: ZoneKind | undefined;
 	for (
 		let idx = vt.indexOf(find);
 		idx !== -1;
@@ -126,34 +143,46 @@ export function suggest(text: string, input: SuggestInput): SuggestResult {
 		if (splitsPair(vt, idx) || splitsPair(vt, end)) continue;
 		const from = view.toNote(idx, "start");
 		const to = view.toNote(end, "end");
-		if (parsed.zones.some((z) => z.start < to && from < z.end)) {
-			hitZone = true;
+		const zone = parsed.zones.find((z) => z.start < to && from < z.end);
+		if (zone) {
+			hitZone ??= zone.kind;
 			continue;
 		}
 		places.push({ from, to, viewStart: idx, viewEnd: end });
 	}
 	const place = places[0];
 	if (!place) {
-		if (hitZone)
+		if (hitZone !== undefined)
 			return fail(
 				"protected_zone",
-				"The text is in code, a table or frontmatter. These are not tracked.",
+				`The text is in a protected zone (${hitZone}). Code, tables, frontmatter, wikilinks and callout markers are not tracked.`,
+				{ zone: hitZone },
 			);
 		return fail("not_found", "The find text does not occur in the note.");
 	}
 	if (places.length > 1)
 		return fail(
 			"ambiguous",
-			"The find text occurs more than once. Add text before or after it.",
+			`The find text occurs ${places.length} times. Add text before or after it.`,
+			{ matches: places.length },
 		);
-	if (
-		view.marks.some((m) =>
-			m.start === m.end
-				? place.viewStart < m.start && m.start < place.viewEnd
-				: place.viewStart < m.end && m.start < place.viewEnd,
-		)
-	)
-		return fail("overlaps_mark", "The text overlaps a pending mark.");
+	const touched = view.marks.filter((m) =>
+		m.start === m.end
+			? place.viewStart < m.start && m.start < place.viewEnd
+			: place.viewStart < m.end && m.start < place.viewEnd,
+	);
+	if (touched.length > 0) {
+		const ids = touched.flatMap(({ mark }) =>
+			mark.id === undefined ? [] : [mark.id],
+		);
+		return fail(
+			"overlaps_mark",
+			ids.length > 0
+				? `The text overlaps the pending mark ${ids.join(", ")}.`
+				: "The text overlaps a pending mark.",
+			{ ids },
+		);
+	}
 	const placeStart = place.from;
 
 	// Trim and extend to whole words.
@@ -304,6 +333,12 @@ function samePrefixKey(prefix: string): string {
 	return (columns >= 4 ? "<code>" : "") + rest;
 }
 
+const INLINE_ZONES = new Set<ZoneKind>([
+	"inline-code",
+	"wikilink",
+	"callout-marker",
+]);
+
 const SETEXT = /^ {0,3}(?:=+|-+)[ \t]*$/;
 const THEMATIC = /^ {0,3}(?:(?:-[ \t]*){3,}|(?:\*[ \t]*){3,}|(?:_[ \t]*){3,})$/;
 const BLANK_LINE = /^[ \t]*$/;
@@ -340,7 +375,7 @@ function structureKey(
 ): string {
 	const inZone = (l: TextLine): boolean =>
 		parsed.zones.some(
-			(z) => z.kind !== "inline-code" && z.start < l.end && l.start < z.end,
+			(z) => !INLINE_ZONES.has(z.kind) && z.start < l.end && l.start < z.end,
 		);
 	const kind = (l: TextLine, prev: TextLine | undefined): string => {
 		const c = t.slice(l.start, l.end);

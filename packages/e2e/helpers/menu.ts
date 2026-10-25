@@ -2,8 +2,17 @@ import { $, $$, browser } from "@wdio/globals";
 import { Key } from "webdriverio";
 import { waitFor } from "./wait";
 
-/** A visible element (CSS selector), or the first match of a text in the editor. */
-export type Target = { selector: string } | { text: string };
+/**
+ * A visible element (CSS selector), or the first match of a text in the editor.
+ * With `synthetic`, the page gets a `contextmenu` event at the centre of the
+ * element, but no real mouse click. Use it in Reading view: on macOS a real
+ * right-click selects the word, and Obsidian then opens the native text menu
+ * (Look up, Copy), also with `nativeMenus: false`. That menu blocks the app
+ * until it closes.
+ */
+export type Target =
+	| { selector: string; synthetic?: boolean }
+	| { text: string };
 
 async function editorPoint(text: string): Promise<{ x: number; y: number }> {
 	return browser.executeObsidian(({ app, obsidian }, text) => {
@@ -47,7 +56,23 @@ export async function rightClickOn(target: Target): Promise<void> {
 			{ once: true, capture: true },
 		);
 	});
-	if ("selector" in target) {
+	if ("selector" in target && target.synthetic) {
+		await $(target.selector).waitForDisplayed();
+		await browser.execute((selector) => {
+			const el = document.querySelector(selector);
+			if (!el) throw new Error(`not found: ${selector}`);
+			const r = el.getBoundingClientRect();
+			el.dispatchEvent(
+				new MouseEvent("contextmenu", {
+					bubbles: true,
+					cancelable: true,
+					button: 2,
+					clientX: r.left + r.width / 2,
+					clientY: r.top + r.height / 2,
+				}),
+			);
+		}, target.selector);
+	} else if ("selector" in target) {
 		const el = $(target.selector);
 		await el.waitForDisplayed();
 		await el.click({ button: "right" });

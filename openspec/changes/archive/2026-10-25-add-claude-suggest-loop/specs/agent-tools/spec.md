@@ -18,7 +18,7 @@ The MCP server `coedit mcp` SHALL offer exactly these tools: `get_context`, `rea
 - **THEN** the `instructions` in the answer contain `suggest_edit` and say that the agent does not edit vault notes directly
 
 ### Requirement: Tool errors have a code
-A tool error SHALL be an MCP error result whose text is JSON with `code`, `message` and, when there are any, `details`. The codes SHALL come from one list: `hub_unavailable`, `protocol_mismatch`, `invalid_path`, `note_not_found`, `unknown_id`, `ambiguous_id`, and the refusal codes of the mark format.
+A tool error SHALL be an MCP error result whose text is JSON with `code`, `message` and, when there are any, `details`. The codes SHALL come from one list: `hub_unavailable`, `protocol_mismatch`, `invalid_path`, `note_not_found`, `unknown_id`, `ambiguous_id`, `invalid_params`, `unknown_method`, `internal_error`, and the refusal codes of the mark format.
 
 #### Scenario: Error shape
 - **WHEN** the agent calls `read_note("../secrets.md")`
@@ -28,7 +28,7 @@ A tool error SHALL be an MCP error result whose text is JSON with `code`, `messa
 Every line and column that a tool returns SHALL be a position in the agent view of the note (the text that `read_note` returns). Lines SHALL start at 1. Columns SHALL start at 0 and count UTF-16 code units. The agent view SHALL use `\n` as the line end, also when the note file uses `\r\n`.
 
 #### Scenario: Selection after a pending deletion
-- **WHEN** line 3 of `essay.md` is `The {--very--} quick fox.` and the user selects `quick`
+- **WHEN** line 3 of `essay.md` is `The {--very --}quick fox.` and the user selects `quick`
 - **THEN** `get_context` returns the selection text `quick`, starting at line 3, column 4
 
 #### Scenario: Note with Windows line ends

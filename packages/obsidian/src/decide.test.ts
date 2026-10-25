@@ -60,6 +60,35 @@ describe("markAt", () => {
 	});
 });
 
+describe("decideAt result for the log", () => {
+	test("accept an insertion with author", () => {
+		const v = view('The {id="i1" author="Claude"++b|ig ++}cat.');
+		const r = ok(decideAt(v.state, cursor(v), "accept")).result;
+		expect(r.id).toBe("i1");
+		expect(r.decision).toBe("accept");
+		expect(r.mark.kind).toBe("insertion");
+		expect(r.mark.content).toBe("big ");
+		expect(r.mark.author).toBe("Claude");
+	});
+
+	test("reject a deletion without author", () => {
+		const v = view('A {id="d1"--v|ery --}big cat.');
+		const r = ok(decideAt(v.state, cursor(v), "reject")).result;
+		expect(r).toMatchObject({ id: "d1", decision: "reject" });
+		expect(r.mark.kind).toBe("deletion");
+		expect(r.mark.content).toBe("very ");
+		expect(r.mark.author).toBeUndefined();
+	});
+
+	test("a mark without id: the result has the new id", () => {
+		const v = view("A {--v|ery --}big cat.");
+		const r = ok(
+			decideAt(v.state, cursor(v), "reject", { newId: () => "n1" }),
+		).result;
+		expect(r.id).toBe("n1");
+	});
+});
+
 describe("decideAt", () => {
 	test("accept an insertion", () => {
 		const v = view('The {id="a1"++b|ig ++}cat.');

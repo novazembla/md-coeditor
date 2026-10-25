@@ -16,7 +16,7 @@ Scope: Claude Code only. Codex is deferred, because we have no access to it. The
 | Build | esbuild for the bundles. `tsc --noEmit` for type checks. | The official Obsidian sample plugin uses esbuild. One fast tool for all bundles. |
 | Shared code | Internal packages that export TypeScript source | No build step for `format` and `protocol`. esbuild and vitest read the source directly. |
 | MCP | `@modelcontextprotocol/sdk`, stdio transport | Claude Code starts the bridge as a subprocess. Channels (push) need stdio. |
-| Hub ⇄ bridge | WebSocket. `ws` in the plugin (server). Node's built-in `WebSocket` in the bridge (client). | Node has no built-in WebSocket server, so the plugin needs `ws`. The bridge needs no extra package. |
+| Hub ⇄ bridge | WebSocket. `ws` in the plugin (server). Node's built-in `WebSocket` in the bridge (client). | Node has no built-in WebSocket server, so the plugin needs `ws`. The bridge needs no extra package (it only needs Node 24, which has a global `WebSocket`). `ws` is also a devDependency of the bridge, for the fake hubs in its tests. |
 | Schemas | zod, in `packages/protocol` | One contract for both ends. The MCP SDK also uses zod. |
 | CLI arguments | `node:util` `parseArgs` | No package needed for a few subcommands. |
 | Tests | vitest. jsdom for the CodeMirror 6 tests. `fast-check` (^4.10.2, in the catalog) for property tests in `packages/format`. | Fast, TypeScript without a build. Property tests find edge cases of the parser (round trip) that example tests miss. |
@@ -43,7 +43,7 @@ md-coeditor/
 │   └── claude/               # Claude Code plugin
 ├── spikes/                   # S1, S2. Throwaway. Delete when done.
 ├── test-vault/               # Obsidian test vault for manual tests
-├── scripts/                  # Node helper scripts (link:bin, link:vault)
+├── scripts/                  # Node helper scripts (link:bin, e2e-docker)
 └── openspec/
 ```
 
@@ -99,7 +99,8 @@ md-coeditor/
 | `pnpm format` | Runs `biome check --write .`. |
 | `pnpm check` | Runs lint, typecheck and test. |
 | `pnpm link:bin` | Puts `coedit` on the PATH (see [install.md](install.md)). Temporary. |
-| `pnpm link:vault` | Links the plugin build into `test-vault/`. Temporary, until `coedit init --dev`. |
+
+The test vault has no root script: use `coedit init --dev` in `test-vault/` (the old `pnpm link:vault` is gone).
 
 ### macOS and Windows
 
@@ -107,10 +108,11 @@ md-coeditor/
 - Code uses `node:path` to join paths.
 - `.gitattributes` sets LF line endings on all systems.
 - The Claude plugin and the tests start `coedit.mjs` with `node`. They do not use the shebang or the PATH. Windows ignores the shebang.
+- Windows is not tested yet. The open checks are in [windows-check-list.md](windows-check-list.md).
 
 ## Obsidian plugin
 
-- `manifest.json` has `"isDesktopOnly": true`. The plugin uses Node APIs (`http`, `fs`).
+- `manifest.json` has `"isDesktopOnly": true`. The plugin uses Node APIs: `ws` (bundled, for the hub), `node:crypto` (token), `node:fs` and `node:os` (endpoint file, machine folder). Node's global `WebSocket` has no server side, and a client without an `Origin` header (the bridge) connects with the token only.
 - `minAppVersion` must not be higher than the Obsidian app on the developer's machine. Use the lower of the installed app version and the `obsidian` types version.
 - The CodeMirror 6 tests use the same `@codemirror/*` versions as Obsidian. They are devDependencies only.
 - `@codemirror/commands` is a devDependency for tests only (history and undo, cursor commands). Plugin code never imports it, because Obsidian does not provide it at runtime.
@@ -121,30 +123,42 @@ md-coeditor/
 
 ```
 adapters/claude/
-├── .claude-plugin/plugin.json   # name "md-coeditor", defaultEnabled: false, settings.agent
-├── .mcp.json                    # node "${CLAUDE_PLUGIN_ROOT}/dist/coedit.mjs" mcp
-├── hooks/hooks.json             # UserPromptSubmit → node …/coedit.mjs inbox; PreToolUse guard for Edit/Write
-├── agents/co-editor.md          # agent definition
+├── .claude-plugin/plugin.json   # name "md-coeditor", defaultEnabled: false (no settings.agent)
+├── .mcp.json                    # ${COEDIT_NODE:-node} "${CLAUDE_PLUGIN_ROOT}/dist/coedit.mjs" mcp; env COEDIT_VAULT, COEDIT_SESSION
+├── hooks/hooks.json             # UserPromptSubmit → node …/coedit.mjs inbox --digest --mark-read (timeout 10)
+├── agents/co-editor.md          # optional profile, started with coedit claude --agent
 └── dist/coedit.mjs              # build output
 ```
 
+There is no guard hook (no `PreToolUse`) and no `settings.agent`: the normal Claude Code agent runs unless the user starts the profile.
+
 - **Self-contained.** When Claude Code installs a plugin from a marketplace, it copies only the plugin folder. Files outside the folder are not available. So the bridge bundle goes into `dist/` inside the plugin.
+- **Soft protection.** The agent is suggest-only by the tool descriptions, the server instructions and the optional profile (no Edit, Write or Bash tool). Hard blocks come from the project's Claude Code permissions (the deny rule that `coedit init` shows) and from the sandbox. A deny rule does not stop a script that the agent runs.
 - **No `bin/` folder.** Claude Code puts a plugin's `bin/` on the PATH of the Bash tool. The agent could then run `coedit inbox --mark-read` itself and move the cursor.
 - **`defaultEnabled: false`.** The plugin never switches on by itself, at any scope.
 - **No `version` field** in `plugin.json`. A fixed version pins marketplace installs. The validator warning "No version specified" is expected.
 
 ### How a session loads the plugin
 
-`coedit claude` starts Claude Code and switches on the plugin for this session only. The `--settings` flag has the scope "this session only".
+`coedit claude` starts Claude Code and switches on the plugin for this session only. It writes a temporary settings file (`<tmp>/coedit-*/settings.json`) and passes `--settings <file>`. The flag has the scope "this session only". The launcher never uses inline JSON: the quoting is not safe on Windows. It deletes the file when `claude` ends.
+
+```json
+{
+  "enabledPlugins": { "<id>": true },
+  "env": { "COEDIT_VAULT": "<vault>", "COEDIT_SESSION": "<uuid>", "COEDIT_NODE": "<node path>" }
+}
+```
 
 | Case | Command that the launcher runs |
 |---|---|
-| The plugin is installed from a marketplace | `claude --settings '{"enabledPlugins":{"md-coeditor@md-coeditor":true}}'` |
-| The plugin is not installed | `claude --plugin-dir <bundled plugin> --settings '{"enabledPlugins":{"md-coeditor@inline":true}}'` |
+| The plugin is installed (`claude plugin list --json`, id `md-coeditor@…`) | `claude --settings <file>` with `<id>` = `md-coeditor@md-coeditor` |
+| The plugin is not installed | `claude --settings <file> --plugin-dir <bundled plugin>` with `<id>` = `md-coeditor@inline` |
 
-`defaultEnabled: false` also applies to `--plugin-dir`. So the launcher must pass the `--settings` value in both cases.
-
-On Windows, `claude` can be `claude.exe` (native installer) or `claude.cmd` (npm). Node can start a `.cmd` file only with a shell. The launcher must handle both.
+- Arguments: `--vault <path>`, `--agent [name]`, then `--` and the arguments for `claude`. The order for `claude` is `--settings`, `--plugin-dir`, `--agent`, then the pass-through arguments.
+- The MCP server and the hook read `env` from the settings file. `.mcp.json` names the variables again, so they also arrive with `CLAUDE_CODE_MCP_ALLOWLIST_ENV=1`.
+- The bundled plugin folder: `COEDIT_PLUGIN_DIR`, else the parent of the running `coedit.mjs` (the plugin's own copy), else the repo layout `adapters/claude`.
+- While `claude` runs, the launcher ignores Ctrl+C (`SIGINT`): it must only stop the agent's turn.
+- On Windows, `claude` can be `claude.exe` (native installer) or `claude.cmd` (npm). The launcher starts `.exe` directly, and starts the target of a `.cmd` shim with Node, never through a shell. Not tested yet: see [windows-check-list.md](windows-check-list.md).
 
 Later, for push, the launcher also adds `--dangerously-load-development-channels plugin:<id>` (spike S2).
 
@@ -156,7 +170,7 @@ An administrator can limit Claude Code with managed settings. These settings can
 |---|---|---|
 | `--plugin-dir` turned off | The fallback without install does not work. | Install the plugin from a marketplace that the company allows. |
 | `strictKnownMarketplaces`, `blockedMarketplaces` | You can add only allowed marketplaces. | The company adds MD-Coeditor to its internal marketplace (for example with an npm source). |
-| `allowManagedHooksOnly` | Our hooks do not run. Pull digest and Edit guard stop. | The administrator must deploy the hooks, or allow plugin hooks. |
+| `allowManagedHooksOnly` | Our hooks do not run. The digest stops. | The administrator must deploy the hooks, or allow plugin hooks. |
 | `allowedMcpServers`, `deniedMcpServers` | The bridge can be blocked. | The administrator allows the `md-coeditor` server. |
 | `channelsEnabled` | Off: no push. Tools and hooks still work. | The administrator switches channels on. |
 | `allowedChannelPlugins` | Without an entry, push needs the development flag. | The administrator lists `md-coeditor` with its marketplace. This needs a marketplace install, not `--plugin-dir`. |
@@ -201,7 +215,13 @@ Turborepo, changesets, CI, Codex adapter, Gemini adapter, Pi adapter, Obsidian c
 
 ## Checks for the spikes
 
-- `claude plugin install` at user scope, with `defaultEnabled: false`: does the plugin stay off? Does `--settings` switch it on for one session?
-- `--plugin-dir` with `defaultEnabled: false`: does `--settings` with `md-coeditor@inline` switch it on?
+Answered on 2026-10-25 (details in the design of the change `add-claude-suggest-loop`, "Checked facts"):
+
+- F1: a plugin with `defaultEnabled: false` stays off. `--settings` with `enabledPlugins` switches it on for one session and writes no file. The user can still switch it on in `/plugin`, and that persists at user scope.
+- F2: `--plugin-dir` gives the id `<manifest name>@inline`. `--settings` with `md-coeditor@inline` switches it on. A wrong id does not load the plugin.
+- The esbuild ESM bundle of the MCP SDK runs alone, with no `node_modules` (about 1.4 MB).
+
+Still open:
+
 - S2: which channel flag value works for each load method (`plugin:md-coeditor@md-coeditor`, `plugin:md-coeditor@inline`, `server:…`)?
-- Does the esbuild ESM bundle of the MCP SDK run without problems?
+- Does `claude plugin install` at user scope switch the plugin on? (Manual check, task 12.3 of the change.)

@@ -87,6 +87,21 @@ export function decideAt(
 }
 
 /**
+ * Decide the mark at `pos` in `view`. Returns the decision result, or the
+ * notice text when nothing was decided.
+ */
+export function applyDecision(
+	view: EditorView,
+	pos: number,
+	decision: Decision,
+): { result: DecisionResult } | { notice: string } {
+	const decided = decideAt(view.state, pos, decision);
+	if (!decided.ok) return { notice: decided.notice };
+	view.dispatch(decided.spec);
+	return { result: decided.result };
+}
+
+/**
  * Decide the mark at `pos` in `view`. Returns the notice text when nothing
  * was decided, or null.
  */
@@ -95,10 +110,8 @@ export function runDecision(
 	pos: number,
 	decision: Decision,
 ): string | null {
-	const result = decideAt(view.state, pos, decision);
-	if (!result.ok) return result.notice;
-	view.dispatch(result.spec);
-	return null;
+	const outcome = applyDecision(view, pos, decision);
+	return "notice" in outcome ? outcome.notice : null;
 }
 
 const setMenuPos = StateEffect.define<number | null>();

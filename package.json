@@ -10,13 +10,12 @@
 		"build": "pnpm -r build",
 		"dev": "pnpm -r --parallel dev",
 		"test": "vitest run",
-		"test:e2e": "pnpm --filter @md-coeditor/obsidian build && pnpm --filter @md-coeditor/e2e test:e2e",
+		"test:e2e": "pnpm --filter @md-coeditor/obsidian --filter @md-coeditor/bridge build && pnpm --filter @md-coeditor/e2e test:e2e",
 		"test:e2e:docker": "node scripts/e2e-docker.mjs",
 		"typecheck": "pnpm -r typecheck",
 		"lint": "biome check .",
 		"format": "biome check --write .",
 		"check": "pnpm lint && pnpm typecheck && pnpm test",
-		"link:vault": "node scripts/link-test-vault.mjs",
 		"link:bin": "node scripts/link-bin.mjs"
 	},
 	"devDependencies": {

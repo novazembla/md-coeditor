@@ -1,10 +1,8 @@
 # MD-Coeditor architecture: mark format
 
-> **Note (2026-10-25):** This file still shows the plan before change 3 (`add-claude-suggest-loop`). Change 3 adds the zone kinds `wikilink` and `callout-marker`, the CommonMark rule for backslashes in inline code, and refusal details. Until task 11.2 of that change updates this file, its [design.md](../changes/add-claude-suggest-loop/design.md) wins on conflict.
-
 Part of the architecture. The entry point is [architecture.md](architecture.md). The Obsidian side is in [architecture-obsidian.md](architecture-obsidian.md), the Claude side in [architecture-claude.md](architecture-claude.md).
 
-`packages/format` owns the mark format. Every other part (plugin, hub, bridge) uses it and does not parse marks itself. Users commit notes in this format, so later changes must stay compatible with it. The details are in the specs `markup-format` and `change-decisions`.
+`packages/format` owns the mark format. The editor and the hub in the Obsidian plugin use it and do not parse marks themselves. The bridge does not parse marks: the digest and `get_detail` use the mark content that the log holds. Users commit notes in this format, so later changes must stay compatible with it. The details are in the specs `markup-format` and `change-decisions`.
 
 ## Data flow
 
@@ -31,8 +29,8 @@ flowchart LR
   TEXT --> IDS
   PARSE --> SER
 
-  PROJECT -->|"agent view text"| AGENT["Agent read tool<br/>(hub, change 3)"]
-  SUGGEST -->|"Result: text, changes, marks<br/>or error code"| HUB["Hub write<br/>(change 3)"]
+  PROJECT -->|"agent view text"| AGENT["Hub: read_note,<br/>get_context selection<br/>(change 3)"]
+  SUGGEST -->|"Result: text, changes, marks<br/>or code, message, details"| HUB["Hub: suggest_edit<br/>(change 3)"]
   DECIDE -->|"Result: text, changes"| EDITOR["Editor decision<br/>(change 2)"]
   IDS -->|"changes"| EDITOR
   PARSE -->|"marks"| RENDER["Editor rendering<br/>(change 2)"]
@@ -51,7 +49,21 @@ The dialect is the obsidian-track-changes format. We checked it against the othe
 
 ## Protected zones
 
-Frontmatter (also after a byte order mark), fenced and indented code blocks, inline code, and tables. Marks are never recognized, created or decided inside them, and a mark never crosses a block zone. The zone rules are simple approximations of CommonMark, not a full parser. Known gaps (escaped backticks, `[[wikilinks]]`, callout markers) are roadmap follow-ups.
+Marks are never recognized, created or decided inside a protected zone, and a mark never crosses a block zone. A suggestion whose match touches a zone is refused with `protected_zone`. The zone rules are simple approximations of CommonMark and Obsidian, not a full parser.
+
+| Zone kind | What it is |
+|---|---|
+| `frontmatter` | YAML frontmatter at the start of the note, also after a byte order mark |
+| `fenced-code` | A fenced code block (backticks or tildes) |
+| `indented-code` | An indented code block (4 or more columns) |
+| `table` | A line with a pipe, directly followed by a delimiter row, and the rows after it |
+| `inline-code` | A code span: a backtick run up to the next run of the same length |
+| `wikilink` | `[[...]]` or an embed `![[...]]`, up to the next `]]` on the same line (change 3) |
+| `callout-marker` | `[!type]` with an optional `+` or `-`, directly after a quote prefix (`>` with optional spaces, also nested `> >`) (change 3) |
+
+Inline code follows the CommonMark rule for backslashes (change 3): a backtick run after an odd number of backslashes does not open a code span. Inside a code span, a backslash is a normal character, so `` `C:\` `` is a closed code span.
+
+Known gaps, as roadmap follow-ups: link targets `](...)`, math `$…$` and `$$` blocks, `%%comments%%`, footnote refs `[^1]`, block ids `^abc` and inline HTML. CJK word boundaries are open for change 7: a word is a run of non-whitespace, so one changed CJK character marks the whole run.
 
 ## Ids
 
@@ -64,21 +76,36 @@ Each mark that MD-Coeditor creates gets a random 6-character id (`[a-z0-9]`). Id
 - **Positions are UTF-16 code units**, the same as JavaScript string indices and CodeMirror positions. Nothing may split a surrogate pair (an emoji).
 - **Writers report edits.** `suggest`, `decide` and `assignIds` return `changes` (`from`, `to`, `insert`, in positions of the input text) and the new text. The plugin applies `changes` as one CodeMirror transaction, so the cursor and the undo history survive.
 - **Functions take text, not a parse result.** A caller cannot pass a stale parse.
-- **Refusals are results, not exceptions.** Each has a code and a short English message that the hub can give to the agent as it is. Exceptions are only for programming errors.
+- **Refusals are results, not exceptions.** Each has a code, a short English message that the hub can give to the agent as it is, and sometimes details (see [Refusals](#refusals)). Exceptions are only for programming errors.
+
+## Refusals
+
+A refusal is `{ ok: false, code, message, details? }`. Each function has its own code union: `SuggestErrorCode` for `suggest` and `DecideErrorCode` for `decide` (`not_found`, `duplicate_id`, `unsupported_kind`). `ErrorCode` is the union of both, for callers that do not care. The hub passes code, message and details to the agent unchanged, and `packages/protocol` lists the same codes as strings.
+
+| Code | `details` |
+|---|---|
+| `ambiguous` | `{ matches }`: the number of matches |
+| `protected_zone` | `{ zone }`: the kind of the first zone that a match touches |
+| `overlaps_mark` | `{ ids }`: the ids of the pending marks that the match touches |
 
 ## Agent view
 
 The agent view is the note as if all pending marks were accepted: insertions, highlights and the new text of substitutions show; deletions and comments are hidden. `project()` makes it, with a map back to note positions.
 
-- The agent reads notes in the agent view (the read tool in change 3), and `suggest` matches the find text in the same view. So matches fit what the agent saw.
+- The agent reads notes in the agent view (`read_note`), and `suggest` matches the find text in the same view. So matches fit what the agent saw. The selection of `get_context` and the mark lines of `read_note` are in view coordinates too.
+- `before` and `after` are optional texts right before and after `find`. They pick one place when `find` occurs more than once.
 - Matches that touch a pending mark count. If the agent sees the text two times, the result is `ambiguous`, never a silent choice. Matches in protected zones do not count.
+- A match that touches a pending mark is refused with `overlaps_mark`. A match next to a mark is fine.
+
+In the example, the note has a pending replace. The agent finds `brown fox`, which does not touch the mark, so `suggest` makes new marks. A find text `slow brown` would touch the pending insertion and get `overlaps_mark`.
 
 ```mermaid
 flowchart LR
-  NOTE["Note<br/>The {--quick--}{++slow++} fox"] -->|"project()"| VIEW["Agent view<br/>The slow fox"]
-  VIEW -->|"agent: find 'slow fox'"| MATCH["Match in the view"]
-  MATCH -->|"position map"| POS["Positions in the note"]
-  POS -->|"suggest()"| OUT["New marks or<br/>an error code"]
+  NOTE["Note<br/>The {--quick--}{++slow++} brown fox"] -->|"project()"| VIEW["Agent view<br/>The slow brown fox"]
+  VIEW -->|"agent: find 'brown fox'"| MATCH["One match in the view,<br/>touches no pending mark"]
+  MATCH -->|"position map"| POS["Positions in the note,<br/>after the insertion"]
+  POS -->|"suggest()"| OUT["New marks"]
+  VIEW -->|"agent: find 'slow brown'"| OVL["overlaps_mark,<br/>details: ids of the insertion"]
 ```
 
 ## Suggestions are safe in every outcome
@@ -92,14 +119,14 @@ So a decision in Obsidian can never break the note or hide other pending marks. 
 
 ```mermaid
 flowchart TD
-  IN["suggest(text, find, replace, ...)"] --> V{"Input valid?<br/>not empty, one line,<br/>no markup, valid attributes"}
+  IN["suggest(text, find, replace,<br/>before?, after?, author, date)"] --> V{"Input valid?<br/>not empty, one line,<br/>no markup, valid attributes"}
   V -->|no| E1["empty_find, no_change,<br/>line_break, markup_in_text,<br/>invalid_attribute"]
-  V -->|yes| M{"Matches in the agent view,<br/>outside protected zones"}
-  M -->|"0, but one in a zone"| E2["protected_zone"]
+  V -->|yes| M{"Matches in the agent view<br/>(with before and after),<br/>outside protected zones"}
+  M -->|"0, but one in a zone"| E2["protected_zone<br/>details: zone"]
   M -->|"0"| E3["not_found"]
-  M -->|"2 or more"| E4["ambiguous"]
+  M -->|"2 or more"| E4["ambiguous<br/>details: matches"]
   M -->|"1"| Z{"Overlaps a<br/>pending mark?"}
-  Z -->|yes| E5["overlaps_mark"]
+  Z -->|yes| E5["overlaps_mark<br/>details: ids"]
   Z -->|no| W["Mark only the changed words:<br/>deletion + insertion, new ids"]
   W --> C{"Check 4 outcomes:<br/>accept all, reject all,<br/>2 mixed"}
   C -->|"block structure changes"| E6["structural_edit"]

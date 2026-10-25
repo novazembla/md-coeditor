@@ -1,4 +1,8 @@
 import { parseArgs } from "node:util";
+import { claudeCommand } from "./commands/claude";
+import { inboxCommand } from "./commands/inbox";
+import { initCommand } from "./commands/init";
+import { mcpCommand } from "./commands/mcp";
 
 export interface Io {
 	stdout: (text: string) => void;
@@ -16,8 +20,13 @@ export const EXIT_OK = 0;
 export const EXIT_ERROR = 1;
 export const EXIT_USAGE = 2;
 
-/** Later changes add `init`, `claude`, `inbox` and `mcp` here. */
-export const subcommands: readonly Subcommand[] = [];
+/** Order: init, claude, inbox, mcp. Each task adds its own entry. */
+export const subcommands: readonly Subcommand[] = [
+	initCommand,
+	claudeCommand,
+	inboxCommand,
+	mcpCommand,
+];
 
 export function helpText(
 	registry: readonly Subcommand[] = subcommands,

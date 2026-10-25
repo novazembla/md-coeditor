@@ -1,7 +1,8 @@
-import { chmod, readFile } from "node:fs/promises";
+import { chmod, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import * as esbuild from "esbuild";
+import { computeSourceHash } from "./source-hash.mjs";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const pkg = JSON.parse(await readFile(path.join(here, "package.json"), "utf8"));
@@ -38,7 +39,13 @@ const options = {
 			name: "chmod",
 			setup(build) {
 				build.onEnd(async (result) => {
-					if (result.errors.length === 0) await makeExecutable();
+					if (result.errors.length !== 0) return;
+					await makeExecutable();
+					const sourceHash = await computeSourceHash();
+					await writeFile(
+						path.join(here, "dist", "coedit.build.json"),
+						`${JSON.stringify({ sourceHash }, null, 2)}\n`,
+					);
 				});
 			},
 		},

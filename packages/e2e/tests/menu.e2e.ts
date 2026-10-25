@@ -39,7 +39,10 @@ describe("change-decisions", () => {
 describe("markup-rendering", () => {
 	it("Right-click in Reading view", async () => {
 		await openNote("modes.md", "reading");
-		await rightClickOn({ selector: ".markdown-preview-view .coedit-ins" });
+		await rightClickOn({
+			selector: ".markdown-preview-view .coedit-ins",
+			synthetic: true,
+		});
 		// Obsidian opens no menu here; if it opens one, it has no decision item.
 		const items = await menuItems({ optional: true });
 		expect(items).not.toContain("Accept change");

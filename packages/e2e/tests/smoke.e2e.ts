@@ -2,6 +2,7 @@ import { browser, expect } from "@wdio/globals";
 import { Key } from "webdriverio";
 import {
 	at,
+	type Bridge,
 	closeMenu,
 	cursor,
 	docText,
@@ -14,6 +15,7 @@ import {
 	readingText,
 	rightClickOn,
 	setCursor,
+	startBridge,
 	waitFor,
 	writeOnDisk,
 } from "../helpers";
@@ -60,5 +62,24 @@ describe("e2e smoke", () => {
 		await openNote(NOTE, "live");
 		writeOnDisk(NOTE, "Changed.\n");
 		await waitFor(docText, (t) => t === "Changed.\n", "reload from disk");
+	});
+});
+
+describe("e2e smoke: bridge", () => {
+	let bridge: Bridge | undefined;
+	afterEach(async () => {
+		await bridge?.close();
+		bridge = undefined;
+	});
+
+	it("get_context through coedit mcp against the real Obsidian", async () => {
+		await openNote("agent/plan.md", "live");
+		bridge = await startBridge();
+		expect(await bridge.json("get_context")).toEqual({
+			hubConnected: true,
+			activeNote: "agent/plan.md",
+			selection: null,
+			openMarks: 0,
+		});
 	});
 });

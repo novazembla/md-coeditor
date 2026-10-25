@@ -9,12 +9,15 @@
 		"typecheck": "tsc -p . --noEmit"
 	},
 	"dependencies": {
-		"@md-coeditor/format": "workspace:*"
+		"@md-coeditor/format": "workspace:*",
+		"@md-coeditor/protocol": "workspace:*",
+		"ws": "catalog:"
 	},
 	"devDependencies": {
 		"@codemirror/commands": "catalog:",
 		"@codemirror/state": "catalog:",
 		"@codemirror/view": "catalog:",
+		"@types/ws": "catalog:",
 		"jsdom": "catalog:",
 		"obsidian": "catalog:"
 	}

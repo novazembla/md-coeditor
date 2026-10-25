@@ -8,7 +8,7 @@ This document tells how the project is tested: the test levels, the tools, the c
 
 | Level | Tool | Where | Command | When |
 |---|---|---|---|---|
-| Unit and spec tests | vitest (jsdom for CodeMirror 6, `fast-check` for property tests) | `packages/*/src/**/*.test.ts`, `packages/*/test/**/*.test.ts`, `scripts/**/*.test.mjs` | `pnpm test` (also in `pnpm check`) | On each change. Fast, no display. |
+| Unit and spec tests | vitest (jsdom for CodeMirror 6, `fast-check` for property tests) | `packages/*/src/**/*.test.ts`, `packages/*/test/**/*.test.ts`, `adapters/*/test/**/*.test.ts`, `scripts/**/*.test.mjs` | `pnpm test` (also in `pnpm check`) | On each change. Fast, no display. |
 | End-to-end tests | WebdriverIO + mocha + `wdio-obsidian-service`, in the real Obsidian app | `packages/e2e/tests/*.e2e.ts` | `pnpm test:e2e:docker` (Linux, no window), `pnpm test:e2e` (macOS) | Docker: after each change in `packages/obsidian`. macOS: before an archive. Not in `pnpm check`. |
 | Manual checks | the developer, in `test-vault/` | `openspec/changes/<change>/tasks.md` | — | Only for what the two levels above cannot check (see "Manual checks"). |
 
@@ -51,7 +51,7 @@ packages/e2e/
 ├── tsconfig.json       wdio, mocha and service types
 ├── wdio.conf.mts       version pins, vault, plugin folder, shared beforeTest hook
 ├── vault/              fixture vault (copied to a sandbox for each run)
-├── helpers/            keys, editor, files, menu, palette, notices, hover, reset
+├── helpers/            keys, editor, files, menu, palette, notices, hover, reset, bridge
 ├── tests/*.e2e.ts      one file per area
 └── .obsidian-cache/    downloaded Obsidian versions (ignored by git)
 ```
@@ -62,7 +62,7 @@ packages/e2e/
 |---|---|
 | `pnpm test:e2e:docker` | Runs all e2e tests in Linux in Docker, with a virtual display. No window opens. The default for every day and for agents. |
 | `pnpm test:e2e:docker --spec tests/cursor.e2e.ts` | Runs one test file in Docker. Extra arguments go to wdio. |
-| `pnpm test:e2e` | Builds the plugin, then runs all e2e tests on this machine (macOS: opens windows). |
+| `pnpm test:e2e` | Builds the plugin and the bridge (`coedit`), then runs all e2e tests on this machine (macOS: opens windows). |
 | `pnpm --filter @md-coeditor/e2e test:e2e` | Runs the e2e tests with the current plugin build (no build). |
 | `pnpm --filter @md-coeditor/e2e exec wdio run wdio.conf.mts --spec tests/cursor.e2e.ts` | Runs one test file. |
 | `pnpm --filter @md-coeditor/e2e typecheck` | Type checks the config, the helpers and the tests (also in `pnpm typecheck`). |
@@ -101,12 +101,12 @@ No beta versions: they need an Obsidian Insiders account. No `"latest"`: the tes
 ### Fixture vault
 
 - `vault/.obsidian/app.json` fixes the settings that change editor behaviour: `nativeMenus: false` (DOM menus), `livePreview: true`, no Vim mode, no auto-pair, no spellcheck. `appearance.json` fixes the theme (light).
-- One note for each test area: `cursor.md`, `hover.md`, `decisions.md`, `undo.md`, `modes.md`, `reload.md`, `no-changes.md`, `smoke.md`. Each note holds only the text its tests need. The exact text is also a constant in the test, so a failed test shows the expected text.
+- One note for each test area: `cursor.md`, `hover.md`, `decisions.md`, `undo.md`, `modes.md`, `reload.md`, `no-changes.md`, `smoke.md`. The folder `agent/` (`essay.md`, `plan.md`, `review.md`, `drafts/draft.md`) is for the agent tests (hub, tools, log, loop). Each note holds only the text its tests need. The exact text is also a constant in the test, so a failed test shows the expected text.
 - `test-vault/` is for manual tests only. The e2e tests do not use it.
 
 ### Shared hook
 
-`beforeTest` in `wdio.conf.mts` calls `resetVault()` before each test: it closes menus and modals with Escape, closes all notes (so the undo history is fresh), puts the vault notes back (`obsidianPage.resetVault()`), and removes notices. Tests do not change the app config. A test that must change it uses `browser.reloadObsidian()`.
+`beforeTest` in `wdio.conf.mts` calls `resetVault()` before each test: it closes menus and modals with Escape, closes all notes (so the undo history is fresh), puts the vault notes back (`obsidianPage.resetVault()`), and removes notices. `obsidianPage.resetVault()` deletes every file that is not in the fixture vault, also dot folders, so the helper hides `.coedit/` from it: the endpoint, the log and the cursors stay while the plugin runs. A test that checks the log reads the last `seq` first (`lastSeq()`) and looks only at the events after it. Tests do not change the app config. A test that must change it uses `browser.reloadObsidian()`.
 
 ### Helpers
 
@@ -123,6 +123,8 @@ No beta versions: they need an Obsidian Insiders account. No `"latest"`: the tes
 | `notices()`, `waitForNotice(text)` | The visible notices; wait for one. |
 | `tooltipOf(selector)` | Move the mouse to an element and read the Obsidian tooltip. |
 | `writeOnDisk(path, text)` | Write a note with Node `fs` in the sandbox, so Obsidian sees a change from outside. |
+| `startBridge()`, `runInbox()` | Start `coedit mcp` (bundle `packages/bridge/dist/coedit.mjs`) for the sandbox vault with an MCP client; run `coedit inbox --digest --mark-read` with hook JSON on stdin. `COEDIT_SESSION` is `e2e-run`; `CLAUDE_CODE_SESSION_ID` and the hook `session_id` differ, so the tests show that the launcher session wins. |
+| `readEndpoint()`, `logEvents()`, `lastSeq()`, `waitForEvents(seq, n)`, `restartPlugin()` | Read `endpoint.json` and the log in the machine folder; switch the plugin off and on. |
 | `waitFor(get, ok, what)` | Wait for a condition, with a short timeout and the last value in the error. |
 
 ### Rules
@@ -138,6 +140,7 @@ No beta versions: they need an Obsidian Insiders account. No `"latest"`: the tes
 
 - Obsidian shows an `aria-label` tooltip only after two or more mouse `pointermove` events (a guard against touch input). One WebDriver move is one event, so `tooltipOf` moves the pointer in small steps.
 - In Reading view, a right-click on text without a selection opens no menu.
+- On macOS, a real right-click on text selects the word under the pointer. In Reading view, Obsidian then opens the native text menu (Look up, Copy), also with `nativeMenus: false`. The native menu blocks the app until it closes, and it stays on the screen after the test run (seen in change 3). So the Reading view test uses `rightClickOn({ selector, synthetic: true })`: a `contextmenu` event from the page, with no real click.
 - In the editor, Obsidian stops the `contextmenu` event before it reaches the window, so `rightClickOn` listens in the capture phase.
 - The command palette shows the plugin name in its own element (`.suggestion-prefix`).
 
@@ -153,3 +156,11 @@ These stay manual:
 - hotkeys that the user sets;
 - one look at the native macOS menu (`nativeMenus` on);
 - Windows (open check in [roadmap.md](roadmap.md)). Linux runs in Docker.
+- the loop with a real `claude` login (tasks 12.3 to 12.5 of the change `add-claude-suggest-loop`). The e2e tests drive `coedit mcp` and `coedit inbox` with a scripted client (`helpers/bridge.ts`), so they never start `claude`. By hand, with a login, check:
+  - `coedit claude` in a repo with a vault below it: the plugin is on, the five tools show, a suggestion arrives in Obsidian, and the next prompt gets the digest;
+  - `/clear`, then a decision and a prompt: the digest comes once;
+  - Ctrl+C during an agent turn: the session goes on and the plugin stays on;
+  - `coedit claude --agent`: the profile runs;
+  - a plain `claude` in the same folder: no co-editor tools, also with the plugin installed at user scope; whether `claude plugin install` switches the plugin on at user scope;
+  - the deny rule from `coedit init` in `.claude/settings.json`: Claude Code blocks a direct Edit of a note;
+  - `coedit claude -- --continue` and `-- --resume` (the digest uses the launcher's session), and `CLAUDE_CODE_MCP_ALLOWLIST_ENV=1` (the MCP server still gets `COEDIT_VAULT` and `COEDIT_SESSION`).

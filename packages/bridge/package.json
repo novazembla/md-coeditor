@@ -13,5 +13,15 @@
 		"build": "node build.mjs",
 		"dev": "node build.mjs --watch",
 		"typecheck": "tsc -p . --noEmit"
+	},
+	"dependencies": {
+		"@md-coeditor/format": "workspace:*",
+		"@md-coeditor/protocol": "workspace:*",
+		"@modelcontextprotocol/sdk": "catalog:",
+		"zod": "catalog:"
+	},
+	"devDependencies": {
+		"@types/ws": "catalog:",
+		"ws": "catalog:"
 	}
 }

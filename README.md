@@ -2,7 +2,7 @@
 
 MD-Coeditor gives you Word-like track changes for Markdown notes in Obsidian. An AI agent (Claude Code) runs in a separate terminal and suggests changes. Each suggestion shows in the note as a tracked change. You accept or reject it in Obsidian, and the agent sees your decisions the next time it runs. The command-line tool is `coedit`.
 
-Status: monorepo skeleton (change `setup-monorepo`). No product features yet. Scope: Claude Code only. Codex comes later.
+Status: the suggest loop works (change `add-claude-suggest-loop`): the agent suggests changes in Obsidian, and the next prompt gets your decisions. Checks with a real `claude` login are open. Scope: Claude Code only. Codex comes later.
 
 MD-Coeditor is an [OpenSpec](https://openspec.dev/) project. We write the specs first. Then we write the code that meets the specs.
 
@@ -14,7 +14,9 @@ MD-Coeditor is an [OpenSpec](https://openspec.dev/) project. We write the specs 
 | [Roadmap](openspec/docs/roadmap.md) | Slices, changes, order, status |
 | [Architecture](openspec/docs/architecture.md) | Entry point: components, diagrams, vault files and git, rules. Details: [Obsidian side](openspec/docs/architecture-obsidian.md), [Claude side](openspec/docs/architecture-claude.md), [mark format](openspec/docs/architecture-format.md) |
 | [Tech stack](openspec/docs/tech-stack.md) | Tools, packages, builds, Claude plugin, corporate setting |
-| [Install](openspec/docs/install.md) | Development install: build, `pnpm link:bin`, test vault |
+| [Install](openspec/docs/install.md) | Development install: build, `pnpm link:bin`, test vault, `coedit init`, `coedit claude` |
+| [Testing](openspec/docs/testing.md) | Test levels, e2e tests in Obsidian, manual checks |
+| [Windows check list](openspec/docs/windows-check-list.md) | Open checks. Windows is not tested yet |
 
 ## Components
 
@@ -27,7 +29,7 @@ MD-Coeditor is an [OpenSpec](https://openspec.dev/) project. We write the specs 
 - pnpm 12 workspaces (with a `catalog:` for shared versions), TypeScript (strict, ESM)
 - Node 24.15 or newer for development, Node 24 or newer for `coedit`
 - esbuild for the bundles, `tsc --noEmit` for type checks
-- `@modelcontextprotocol/sdk` (stdio), `ws`, zod
+- `@modelcontextprotocol/sdk` (stdio), zod, `ws` (in the Obsidian plugin only)
 - vitest (with jsdom for the CodeMirror tests), Biome
 
 Shared code (`packages/format`, `packages/protocol`) is in internal packages. The other packages import them as TypeScript source. For details, see [tech-stack.md](openspec/docs/tech-stack.md).
@@ -49,24 +51,37 @@ openspec/           specs, changes and docs
 
 Requirements: macOS or Windows (Linux should work, but it is not tested), Node 24.15 or newer, pnpm 12, Obsidian, Claude Code.
 
-Works now (after `setup-monorepo`):
-
 ```sh
 pnpm install
 pnpm build
-pnpm link:bin        # puts coedit on your PATH
+pnpm link:bin                          # puts coedit on your PATH
 coedit --version
-pnpm link:vault      # links the Obsidian plugin into test-vault/
+(cd test-vault && coedit init --dev)   # links the Obsidian plugin into test-vault/, prepares .coedit/
 ```
 
-Comes with slice 1:
+Then open `test-vault/` in Obsidian and start a session in the repo:
 
 ```sh
-coedit init --dev           # in your vault: installs the Obsidian plugin, creates .coedit/
-coedit claude --doc note.md # starts a co-editor session
+coedit claude                  # finds the vault; the plugin is on for this session only
+coedit claude --vault test-vault --agent -- --continue
 ```
 
-Other root scripts: `pnpm dev` (watch mode), `pnpm test`, `pnpm typecheck`, `pnpm lint`, `pnpm format`, `pnpm check` (lint, type check and tests).
+`--vault <path>` picks the vault. `--agent` starts the co-editor profile.
+
+Everything after `--` goes to `claude` unchanged, so you can use any `claude` option:
+
+```sh
+coedit claude -- --continue              # continue the last conversation
+coedit claude -- --resume                # pick a conversation to resume
+coedit claude -- --model sonnet          # choose the model
+coedit claude -- --permission-mode plan  # start in plan mode
+```
+
+Each `coedit claude` run is a new co-editor session, also with `--continue` or `--resume`. The digest lists only the decisions that you make while the session runs. Decisions from before the start stay in the notes (and in the log for `get_detail`).
+
+`coedit init` also shows a deny rule for the project's `.claude/settings.json`. The agent only suggests changes. That is a soft rule; the deny rule and the Claude Code sandbox give hard blocks. Windows is not tested yet: see [windows-check-list.md](openspec/docs/windows-check-list.md).
+
+Other root scripts: `pnpm dev` (watch mode), `pnpm test`, `pnpm test:e2e:docker` (tests in real Obsidian, no window), `pnpm typecheck`, `pnpm lint`, `pnpm format`, `pnpm check` (lint, type check and tests).
 
 ### Reload the Obsidian plugin during development
 

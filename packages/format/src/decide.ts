@@ -1,5 +1,5 @@
 import { parse } from "./parse";
-import type { Change, Mark, Result } from "./types";
+import type { Change, DecideErrorCode, Mark, Result } from "./types";
 
 export type Decision = "accept" | "reject";
 
@@ -13,12 +13,17 @@ export interface DecideInput {
 	decision: Decision;
 }
 
-export function decide({ text, id, decision }: DecideInput): Result<{
-	text: string;
-	mark: Mark;
-	decision: Decision;
-	changes: Change[];
-}> {
+export type DecideResult = Result<
+	{
+		text: string;
+		mark: Mark;
+		decision: Decision;
+		changes: Change[];
+	},
+	DecideErrorCode
+>;
+
+export function decide({ text, id, decision }: DecideInput): DecideResult {
 	const found = parse(text).marks.filter((m) => m.id === id);
 	const mark = found[0];
 	if (!mark) {

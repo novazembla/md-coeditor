@@ -1,15 +1,15 @@
 # Install (development)
 
-Status: steps 1 and 2 work after the change `setup-monorepo`. Steps 3, 4 and 5 come with slice 1 (`coedit init`, `coedit claude`, the Claude plugin with hooks and MCP config).
+Status: all steps work after the change `add-claude-suggest-loop`, except the checks with a real `claude` login (tasks 12.3 to 12.5 of that change). Windows is not tested yet: see [windows-check-list.md](windows-check-list.md).
 
-| Step | Works after |
+| Step | Command |
 |---|---|
-| 1. Get the code and build | `setup-monorepo` |
-| 2. Put `coedit` on your PATH | `setup-monorepo` (only `coedit --version` and `coedit --help`) |
-| Test vault: `pnpm link:vault` | `setup-monorepo` (temporary, until `coedit init --dev`) |
-| 3. Prepare a vault (`coedit init`) | slice 1 |
-| 4. Start a session (`coedit claude`) | slice 1 |
-| 5. Install the Claude plugin from the marketplace | slice 1 |
+| 1. Get the code and build | `pnpm install`, `pnpm build` |
+| 2. Put `coedit` on your PATH | `pnpm link:bin` |
+| Test vault | `coedit init --dev` in `test-vault/` |
+| 3. Prepare a vault | `coedit init` |
+| 4. Start a session | `coedit claude` |
+| 5. Optional: install the Claude plugin from the marketplace | `claude plugin install` |
 
 The build makes one JavaScript file, `coedit.mjs`. `pnpm link:bin` puts an entry for that file on your PATH as `coedit`. For the npm package (later), see [tech-stack.md](tech-stack.md#distribution-planned).
 
@@ -19,9 +19,9 @@ The build makes one JavaScript file, `coedit.mjs`. `pnpm link:bin` puts an entry
 - Node 24.15 or newer
 - pnpm 12. Run `corepack enable`, or install pnpm yourself.
 - Obsidian (desktop app)
-- Claude Code (slice 1)
+- Claude Code, with a login (only for `coedit claude`)
 
-The commands in steps 1 and 2 work in the macOS Terminal and in Windows PowerShell.
+The commands in steps 1 and 2 are written for the macOS Terminal and Windows PowerShell. Windows is not tested yet: see [windows-check-list.md](windows-check-list.md).
 
 ## 1. Get the code and build
 
@@ -68,38 +68,67 @@ Alternative (not verified): `pnpm add -g ./packages/bridge`. pnpm can copy the p
 The repo contains `test-vault/`, a small Obsidian vault for manual tests. To link the plugin build into it:
 
 ```sh
-pnpm link:vault
+cd test-vault
+coedit init --dev
 ```
 
-On macOS and Linux this makes a symlink, on Windows a directory junction: `test-vault/.obsidian/plugins/md-coeditor` → `packages/obsidian/dist`. Then open `test-vault/` in Obsidian as a vault. If restricted mode is on, turn it off.
+On macOS and Linux this makes a relative symlink, on Windows a directory junction: `test-vault/.obsidian/plugins/md-coeditor` → `packages/obsidian/dist`. It also prepares `.coedit/` (step 3). Then open `test-vault/` in Obsidian as a vault. If restricted mode is on, turn it off.
 
-This script is temporary. In slice 1, `coedit init --dev` (step 3) replaces it.
-
-## 3. Prepare a vault (slice 1)
+## 3. Prepare a vault
 
 ```sh
-cd /path/to/your/vault          # or: cd test-vault
-coedit init --dev
+cd /path/to/your/vault          # a folder in the vault also works
+coedit init                     # in the repo: coedit init --dev
 ```
 
 `coedit init` does these steps. You can run it again with no damage.
 
-1. It finds the vault: it looks for `.obsidian/` in this folder and in the folders above it.
-2. It installs the Obsidian plugin. With `--dev`, it makes a link to `packages/obsidian/dist`. Without `--dev`, it copies the files.
-3. It checks whether the Claude plugin is installed. If not, it shows the commands for step 5. It does not install it for you.
-4. It creates `.coedit/` with `config.json` and `.coedit/.gitignore`.
+1. It finds the vault: the nearest folder with `.obsidian/`, from this folder upward. If there is none, it stops with `Not inside an Obsidian vault` and exit code 1.
+2. It installs the Obsidian plugin. With `--dev`, it links `packages/obsidian/dist` (a symlink, on Windows a junction). Without `--dev`, it copies `main.js`, `manifest.json` and `styles.css`. It needs the repo build for this, so run `pnpm build` first.
+3. It creates `.coedit/` with `config.json` and `.coedit/.gitignore`. It keeps your own lines in both files.
+4. It reports the Claude plugin (`claude plugin list --json`). If the plugin is not installed, it shows the commands of step 5. It does not install it. If the plugin is on at user scope, it warns and shows `claude plugin disable <id>`.
+5. It shows the deny rule (see below). It does not write it.
 
 Then reload Obsidian. If restricted mode is on, turn it off. If the plugin is off, switch it on: **Settings → Community plugins → MD-Coeditor**.
 
-## 4. Start a session (slice 1)
+### Deny rule (optional)
 
-```sh
-coedit claude --doc note.md
+The agent only suggests changes. This is a soft rule: the tool descriptions, the server instructions and the optional profile (`--agent`) say so. A hard block comes from the project's Claude Code permissions and from the sandbox. `coedit init` shows a rule for this, for example:
+
+```json
+{
+  "permissions": {
+    "deny": ["Edit(/test-vault/**/*.md)"]
+  }
+}
 ```
 
-This starts Claude Code with the MD-Coeditor plugin for this session only. Other `claude` sessions do not load it.
+Add it to `.claude/settings.json` in the project root. The project root is the nearest folder with `.git` at or above the vault. If there is none, it is the vault. The path in the rule is relative to that root. The rule applies when `coedit claude` starts in that root.
 
-## 5. Optional: install the Claude plugin from the marketplace (slice 1)
+Limits:
+
+- One `Edit` rule also covers Write, MultiEdit and NotebookEdit.
+- A deny rule does not stop a script that the agent runs (for example `sed -i` in a shell command). For a hard block, use the Claude Code sandbox.
+- `coedit init` never writes this file. You add the rule.
+
+## 4. Start a session
+
+```sh
+cd /path/to/repo                 # the vault is here, above, or below (up to 3 levels)
+coedit claude
+```
+
+This starts Claude Code with the MD-Coeditor plugin for this session only. Other `claude` sessions do not load it. Obsidian must be open with the plugin on.
+
+| Option | Meaning |
+|---|---|
+| `--vault <path>` | Use this vault. Without it, `coedit claude` takes the nearest vault at or above the current folder, else the one vault below it. With none or with more than one, it lists what it found and asks for `--vault`. A path without `.obsidian/` is refused (exit code 1). |
+| `--agent [name]` | Start an agent profile. Without a name: `md-coeditor:co-editor` (reads notes, suggests changes, has no Edit, Write or Bash tool). |
+| `-- <arguments>` | Everything after `--` goes to `claude` unchanged, for example `coedit claude -- --continue`. |
+
+`coedit claude` runs in the current folder, not in the vault. It makes a temporary settings file and passes it with `claude --settings <file>`. The file switches the plugin on for this session and names the vault and the session. `coedit claude` deletes the file when `claude` ends. If the Claude plugin is not installed, it loads the plugin from the repo with `--plugin-dir`.
+
+## 5. Optional: install the Claude plugin from the marketplace
 
 You do not need this step. Without it, `coedit claude` loads the plugin from the repo (`--plugin-dir`). Install it if your company does not allow `--plugin-dir`, or if you want to see the plugin in `/plugin`.
 
@@ -115,6 +144,6 @@ The plugin has `defaultEnabled: false`. If `claude plugin list` shows it as enab
 claude plugin disable md-coeditor@md-coeditor
 ```
 
-`coedit claude` switches it on for its own sessions only.
+`coedit claude` switches it on for its own sessions only. Whether `claude plugin install` switches the plugin on at user scope is a manual check (task 12.3 of the change). `coedit init` warns when it is on.
 
 Do not install it at project scope. Then every `claude` session in the vault loads it, also sessions for other work.

@@ -172,3 +172,8 @@ describe("markAt helper", () => {
 		expect(markAt(v.state, after(v, "b"))?.id).toBe("a1");
 	});
 });
+
+describe("Decisions in Obsidian are logged", () => {
+	test.todo("Accept from the menu: e2e in packages/e2e/tests/log.e2e.ts");
+	test.todo("No change at the cursor: e2e in packages/e2e/tests/log.e2e.ts");
+});

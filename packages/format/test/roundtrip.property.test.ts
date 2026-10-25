@@ -28,6 +28,13 @@ const fragments = [
 	"``",
 	"```",
 	"````",
+	"[[",
+	"]]",
+	"[[a|b]]",
+	"![[x.png]]",
+	"> [!note]-",
+	"\\",
+	"\\`",
 	"~~~",
 	"```js",
 	"|",
@@ -108,6 +115,21 @@ describe("round trip (property)", () => {
 				(t) => serialize(parse(t)) === t,
 			),
 			{ numRuns: 1000 },
+		);
+	});
+
+	it("finds no mark inside a wikilink", () => {
+		fc.assert(
+			fc.property(noteArb, (t) => {
+				const p = parse(t);
+				for (const z of p.zones) {
+					if (z.kind !== "wikilink") continue;
+					for (const m of p.marks) {
+						expect(m.start < z.end && z.start < m.end).toBe(false);
+					}
+				}
+			}),
+			{ numRuns: 2000 },
 		);
 	});
 });

@@ -1,0 +1,12 @@
+{
+	"mcpServers": {
+		"md-coeditor": {
+			"command": "${COEDIT_NODE:-node}",
+			"args": ["${CLAUDE_PLUGIN_ROOT}/dist/coedit.mjs", "mcp"],
+			"env": {
+				"COEDIT_VAULT": "${COEDIT_VAULT:-}",
+				"COEDIT_SESSION": "${COEDIT_SESSION:-}"
+			}
+		}
+	}
+}

@@ -266,7 +266,32 @@ describe("suggest: matches in a zone do not count", () => {
 			ok: false,
 			code: "overlaps_mark",
 			message: expect.stringMatching(/\S/),
+			details: { ids: [] },
 		});
+	});
+	it("reports the ids of the marks that the match overlaps", () => {
+		const r = run('The {id="i1bbbb"++big ++}cat.', "big cat", "cat");
+		expect(r).toMatchObject({
+			ok: false,
+			code: "overlaps_mark",
+			details: { ids: ["i1bbbb"] },
+		});
+		expect(!r.ok && r.message).toContain("i1bbbb");
+	});
+	it("reports the number of matches", () => {
+		const r = run("cat, cat, cat", "cat", "dog");
+		expect(r).toMatchObject({ ok: false, code: "ambiguous" });
+		expect(!r.ok && r.details).toEqual({ matches: 3 });
+		expect(!r.ok && r.message).toContain("3");
+	});
+	it("reports the kind of the zone", () => {
+		const r = run("See [[Project plan]].", "Project plan", "Plan");
+		expect(r).toMatchObject({
+			ok: false,
+			code: "protected_zone",
+			details: { zone: "wikilink" },
+		});
+		expect(code("```\ncat\n```\n", "cat", "dog")).toBe("protected_zone");
 	});
 	it("a place in a zone and a place in a mark: the mark wins", () => {
 		const r = run("The {++big ++}cat. `big cat`", "big cat", "dog");

@@ -8,7 +8,8 @@
 		{
 			"name": "md-coeditor",
 			"source": "./adapters/claude",
-			"description": "Word-like track changes (CriticMarkup) in Obsidian, with Claude Code as a suggest-only co-editor."
+			"description": "Word-like track changes (CriticMarkup) in Obsidian, with Claude Code as a suggest-only co-editor.",
+			"defaultEnabled": false
 		}
 	]
 }

@@ -3,6 +3,7 @@ import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
+import { computeSourceHash } from "../source-hash.mjs";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const bundle = path.join(here, "..", "dist", "coedit.mjs");
@@ -53,5 +54,25 @@ describe.skipIf(!built)("dist/coedit.mjs", () => {
 		expect(r.stdout).toBe("");
 		expect(r.stderr).toContain("frobnicate");
 		expect(r.stderr).toContain("coedit --help");
+	});
+
+	it("no arguments prints usage and exits 0", () => {
+		const r = coedit();
+		expect(r.status).toBe(0);
+		expect(r.stdout).toContain("Usage");
+	});
+
+	it("unknown option exits 2", () => {
+		expect(coedit("--frobnicate").status).toBe(2);
+	});
+
+	it("is not stale against the source", async () => {
+		const meta = JSON.parse(
+			readFileSync(path.join(here, "..", "dist", "coedit.build.json"), "utf8"),
+		) as { sourceHash: string };
+		const current = await computeSourceHash();
+		expect(meta.sourceHash, "dist/coedit.mjs is stale: run pnpm build").toBe(
+			current,
+		);
 	});
 });

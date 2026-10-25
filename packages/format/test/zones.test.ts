@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { parse } from "../src/parse";
 import { findBlockZones, splitLines } from "../src/zones";
 
 const kinds = (t: string) =>
@@ -157,5 +158,48 @@ describe("zone edges", () => {
 	it("positions after non-ASCII text are in UTF-16 units", () => {
 		// "é" is 1 unit, the emoji is 2, then two line endings: the fence starts at 5.
 		expect(kinds("é😀\n\n```\nx\n```")).toEqual([["fenced-code", 5, 14]]);
+	});
+});
+
+describe("inline zones", () => {
+	const inline = (t: string) =>
+		parse(t).zones.map((z) => [z.kind, t.slice(z.start, z.end)]);
+
+	it("finds a wikilink with an alias", () => {
+		expect(inline("a [[a|b]] c")).toEqual([["wikilink", "[[a|b]]"]]);
+	});
+	it("finds an embed", () => {
+		expect(inline("![[x.png]]")).toEqual([["wikilink", "![[x.png]]"]]);
+	});
+	it("an unclosed [[ is no zone", () => {
+		expect(inline("a [[b c")).toEqual([]);
+		expect(inline("a [[b\nc]] d")).toEqual([]);
+	});
+	it("finds a callout marker", () => {
+		expect(inline("> [!note]")).toEqual([["callout-marker", "[!note]"]]);
+	});
+	it("a callout marker may have + or -", () => {
+		expect(inline("> [!tip]+ T")).toEqual([["callout-marker", "[!tip]+"]]);
+		expect(inline("> > [!warning]-")).toEqual([
+			["callout-marker", "[!warning]-"],
+		]);
+	});
+	it("[!note] outside a quote is no zone", () => {
+		expect(inline("[!note]")).toEqual([]);
+		expect(inline("a > [!note]")).toEqual([]);
+	});
+	it("an escaped backtick opens no span", () => {
+		expect(inline("a \\` b")).toEqual([]);
+	});
+	it("an escaped backslash does not escape the backtick", () => {
+		expect(inline("a \\\\` b `")).toEqual([["inline-code", "` b `"]]);
+	});
+	it("a backslash at the end of a span lets it close", () => {
+		expect(inline("`C:\\`")).toEqual([["inline-code", "`C:\\`"]]);
+	});
+	it("a mark after a span with a final backslash is found", () => {
+		const p = parse("`a\\` b {++x++}");
+		expect(p.zones.map((z) => z.kind)).toEqual(["inline-code"]);
+		expect(p.marks.map((m) => m.content)).toEqual(["x"]);
 	});
 });

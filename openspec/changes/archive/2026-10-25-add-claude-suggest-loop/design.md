@@ -133,7 +133,7 @@ The selection is the main selection of the editor, mapped to the view with the p
 - **Log id:** when the writer creates `events.jsonl`, it also writes `log/log-id` with a random id (16 bytes in hex). A new or restored log gets a new id. Cursors store the id (D11).
 - **Envelope:** `{ v: 1, seq, ts, type, path, actor, agent?, session? }`. The mark ids are in the event bodies (`ids` on `suggestion`, `id` on `decision`), not in the envelope. The session comes from `hello`, not from each call.
 - **Decision events:** `decideAt` in `decide.ts` returns the transaction spec. It now also returns the decided mark (id after `ensureId`, kind, content, author) and the decision. `main.ts` dispatches, then appends the event. A failed append writes to the console and shows one notice for each session of Obsidian. It never blocks or undoes the decision.
-- **Rename events:** from `vault.on("rename")` for files with the extension `md`. Every Markdown rename is logged. The cost is small, and readers need no state. Whether Obsidian fires one event for each note when a folder is renamed is checked in task 10.3. If it fires only one event for the folder (a `TFolder`), the plugin writes one `rename` event for each Markdown note below the new folder path.
+- **Rename events:** from `vault.on("rename")` for files with the extension `md`. Every Markdown rename is logged. The cost is small, and readers need no state. For a renamed folder, Obsidian also fires one event for each file below it (task 10.3), so the plugin ignores the event for the folder (a `TFolder`).
 - **Suggestion events:** the hub appends one event after a successful write, with `session` from `hello`, and with the path from `TFile.path` (the real case of the file), not the agent's input.
 - **Mark identity:** a mark id is unique only inside one note (spec `markup-format`, "Unique mark ids"). A copied note or a template can hold the same id. So every reader keys a mark by (note path, id). The note path follows `rename` events: an event for `essay.md` before the rename `essay.md` → `drafts/essay.md` belongs to `drafts/essay.md`.
 - **Latest event wins:** for one mark (path, id), readers use the latest event that sets its state. In this change that is the `decision` event. Change 9 adds more such event types under the same rule.
@@ -162,6 +162,9 @@ A path is valid when it is relative, uses `/`, has no `\`, no drive letter (`C:`
   - `hub_unavailable`, `protocol_mismatch`;
   - `invalid_path`, `note_not_found`;
   - `unknown_id`, `ambiguous_id`;
+  - `invalid_params`: the input does not match the tool schema;
+  - `unknown_method`: the hub does not know the method (a newer bridge);
+  - `internal_error`: an unexpected error in the hub, for example a note deleted during the write;
   - the format codes of `SuggestErrorCode` (D17 A).
 
 ### D10. Digest builder
@@ -362,7 +365,10 @@ The Obsidian plugin (copied by `init`) and the Claude plugin (marketplace) updat
 - [The user presses Esc while the hook runs (F3)] → The cursor has moved, but the prompt does not reach the model, so that digest is lost. Known gap in slice 1. `get_detail` and the notes still show every decision.
 - [A subagent calls `get_digest`] → It takes the decisions into a context that the main agent does not see. The server instructions and the profile say "main conversation only". Known gap.
 - [The machine name changes (for example a renamed computer)] → A new machine folder starts: a new log and new cursors. The old folder stays as history. Running sessions get "Obsidian not connected" until they restart. Acceptable.
+- [On macOS, `os.hostname()` can change with the network (a host name from DHCP), between the start of Obsidian and the start of the bridge] → The hub and the bridge then use two machine folders, and the tools say "Obsidian not connected" until Obsidian restarts. Found in the apply review. Not fixed in this change; a stable name (for example `scutil --get LocalHostName` on macOS) is a follow-up in the roadmap.
+- [Two hook or bridge processes move one cursor at the same moment] → A writer reads the cursor again just before its rename, so a move back can only happen in the short time between that read and the rename. Accepted: the worst case is one digest that comes twice. A lock file can close it later.
 - [Two machines with the same name sync one vault] → They share a machine folder again. Rare; the docs say to give machines different names.
+- [`--continue` or `--resume` starts a new launcher run, so a new session] → The new session has no cursor and gets no backlog. Decisions made after the old conversation ended are in no digest. Notes and `get_detail` still show them. Seen in manual check 12.5; follow-up in the roadmap.
 - [`/clear` in a session] → The session id from the launcher does not change, so the cursor stays. Decisions delivered before `/clear` are not delivered again; the notes show their result.
 - [A digest excerpt holds instructions from note content] → The excerpt is a JSON string, and a framing line says quoted text is note content. This lowers the risk; it does not remove it.
 - [A failed log append] → The decision stays in the note. The log misses one event. A notice tells the user once.
@@ -459,7 +465,12 @@ These need a real `claude` with a login, so they cannot run in CI:
 
 None of these change the specs. Each has a task or a manual check:
 - Which `Origin` and `Host` does Node's global `WebSocket` send? (task 4.2; see Risks)
+  Answered (task 4.2): Node's global `WebSocket` (undici) sends no `Origin` header. `Host` is `127.0.0.1:<port>`. The rule "refuse every `Origin`" stays; the test `accepts Node's global WebSocket` in `hub/server.test.ts` keeps this checked.
 - What is the exact JSON shape of `claude plugin list --json` in 2.1.310? (task 8.3)
+  Answered (task 8.3): the output is a JSON array. Each entry has `id` (`<name>@<marketplace>`), `version`, `scope` (`user`, `project` or `local`), `enabled` (boolean) and `installPath`; it may also have `installedAt`, `lastUpdated`, and for `project` and `local` scope `projectPath` and `projectEnabled`. The parser reads `id`, `scope`, `enabled`, `version` and `projectPath`; anything else counts as "not installed". Real output is the fixture `packages/bridge/test/fixtures/plugin-list.json`.
 - Does `claude plugin install` switch the plugin on at user scope? (manual check 12.3)
+  Answered (task 12.3): no. `claude plugin install md-coeditor@md-coeditor` (claude 2.1.310, 2026-10-25) gives scope `user` with `enabled: false`. The install does not switch the plugin on. A plain `claude` stays without co-editor tools.
 - Does Obsidian fire a `rename` event for each note when a folder is renamed? (task 10.3)
+  Answered (task 10.3): yes. Obsidian 1.14.4 fires one `rename` event for the `TFolder` first (at that moment the files below still have their old paths), then one `rename` event for each file below it, with the new path and the old path. So the plugin logs only file events and ignores the folder event; a folder branch would give duplicates. The e2e test "Folder renamed" in `packages/e2e/tests/log.e2e.ts` checks that one note in a renamed folder gives exactly one `rename` event.
 - Does `.mcp.json` `env` reach the MCP server when `CLAUDE_CODE_MCP_ALLOWLIST_ENV=1`? The docs say yes. (manual check 12.5)
+  Answered (task 12.5): yes. `COEDIT_VAULT` and `COEDIT_SESSION` reach the MCP server through the `.mcp.json` `env`. Also: `/clear` keeps the launcher's session inside one run. `coedit claude -- --continue` and `-- --resume` work, but each is a new launcher run: a new `COEDIT_SESSION` and a new `coedit-XXXX` temp folder. This is expected. So decisions made between the end of a conversation and its resume are in no digest (spec "No backlog for a new session"). The roadmap has a follow-up for this.

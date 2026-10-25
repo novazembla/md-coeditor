@@ -1,0 +1,20 @@
+[
+	{
+		"id": "llm-wiki@claude-code-skills",
+		"version": "2.14.1",
+		"scope": "project",
+		"enabled": false,
+		"installPath": "/Users/someone/.claude/plugins/cache/claude-code-skills/llm-wiki/2.14.1",
+		"installedAt": "2026-08-08T09:40:46.158Z",
+		"lastUpdated": "2026-10-24T08:02:37.728Z",
+		"projectPath": "/Users/someone/Dropbox/www/fluxed/app-koeln.de",
+		"projectEnabled": false
+	},
+	{
+		"id": "vvu-research@skills-dir",
+		"version": "0.1.0",
+		"scope": "user",
+		"enabled": true,
+		"installPath": "/Users/someone/.claude/skills/vvu-research"
+	}
+]

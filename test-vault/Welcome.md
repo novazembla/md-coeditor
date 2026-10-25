@@ -5,7 +5,7 @@ This vault is for manual tests of the MD-Coeditor plugin. Do not keep real notes
 ## Link the plugin
 
 1. In the repository root, run `pnpm build`.
-2. Run `pnpm link:vault`. This links `.obsidian/plugins/md-coeditor` to `packages/obsidian/dist`.
+2. In this folder, run `coedit init --dev`. This links `.obsidian/plugins/md-coeditor` to `packages/obsidian/dist`.
 3. Open this folder as a vault in Obsidian.
 4. Go to Settings → Community plugins. Turn off restricted mode, then turn on MD-Coeditor.
 
