@@ -12,7 +12,7 @@ MD-Coeditor is an [OpenSpec](https://openspec.dev/) project. We write the specs 
 | --- | --- |
 | [Vision](openspec/docs/vision.md) | Why the product exists, for whom, its value |
 | [Roadmap](openspec/docs/roadmap.md) | Slices, changes, order, status |
-| [Architecture](openspec/docs/architecture.md) | Components, diagram, the `coedit` binary, git rules |
+| [Architecture](openspec/docs/architecture.md) | Entry point: components, diagrams, vault files and git, rules. Details: [Obsidian side](openspec/docs/architecture-obsidian.md), [Claude side](openspec/docs/architecture-claude.md), [mark format](openspec/docs/architecture-format.md) |
 | [Tech stack](openspec/docs/tech-stack.md) | Tools, packages, builds, Claude plugin, corporate setting |
 | [Install](openspec/docs/install.md) | Development install: build, `pnpm link:bin`, test vault |
 

@@ -12,7 +12,7 @@ Brief each subagent fully: goal, files, rules, done criteria. Independent subage
 ## Project
 md-coeditor: Word-like track changes (CriticMarkup) in Obsidian + interactive Claude Code session in a terminal. CLI binary: `coedit`.
 Status: see openspec/docs/roadmap.md. Scope: Claude Code only; Codex deferred (no access), keep design agent-neutral.
-Docs: openspec/docs/{vision,roadmap,architecture,tech-stack,testing,install}.md (vision = purpose and value, no tech; roadmap = slices, changes, status). openspec/docs/initial-plan.md: frozen, partly old; other docs win on conflict.
+Docs: openspec/docs/{vision,roadmap,architecture,tech-stack,testing,install}.md (vision = purpose and value, no tech; roadmap = slices, changes, status). architecture.md is the entry point; details in architecture-{obsidian,claude,format}.md. openspec/docs/initial-plan.md: frozen, partly old; other docs win on conflict.
 
 ## Stack
 - pnpm 12 workspaces (`packageManager` pnpm@12.15.0, `catalog:` for shared versions); no Turbo/Nx. TypeScript strict, ESM. Node >=24.15 for dev (jsdom 30), >=24 for `coedit` runtime. No Bun.
@@ -45,10 +45,10 @@ Full rules: openspec/docs/testing.md. For agents that write tests:
 
 ## Rules
 - Spec first: work through OpenSpec changes (openspec/changes/). No code without a change.
-- Hub is the only network server. Bridge = stdio MCP server, client of hub, thin in slice 1 (logic in hub).
-- One writer per file: hub writes notes, log, endpoint.json. Bridge/inbox write cursor.json only.
-- Every agent interaction is triggered by the user. Agent is suggest-only; guard blocks Edit/Write on attached notes.
+- Hub is the only network server. Bridge = stdio MCP server, client of hub. Tool logic that changes notes is in the hub; the bridge reads the log, builds the digest and writes cursors.
+- One writer per file: the plugin (hub, editor) writes notes, log, endpoint.json, local/.gitignore. Bridge/inbox write only cursors (.coedit/local/<machine>/cursors/<session>.json). Machine-local state lives in .coedit/local/<machine>/.
+- Every agent interaction is triggered by the user. Agent is suggest-only (soft: tool descriptions, optional profile). No guard hook; hard blocks come from the project's Claude Code permissions (`coedit init` shows a deny rule; scripts are not blocked).
 - Claude plugin `defaultEnabled: false`. Only `coedit claude` enables it, per session, via `--settings` enabledPlugins. Never user/project scope.
-- Marks and comments stay inline in notes (committed). `.coedit/` git: commit config.json, style.md; ignore endpoint.json, cursor.json, log/, snapshots/, *.sock, *.lock (via .coedit/.gitignore).
+- Marks and comments stay inline in notes (committed). `.coedit/` git: commit config.json, style.md; ignore local/, snapshots/, *.sock, *.lock (via .coedit/.gitignore; the plugin also writes local/.gitignore = `*`).
 - Frontmatter, code blocks, tables: never tracked, never suggested into.
 - Desktop only. Must work on macOS and Windows (Linux: should work, not tested): Node scripts only (no shell commands), node:path for paths, no shebang/symlink reliance on Windows.

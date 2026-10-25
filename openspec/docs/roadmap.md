@@ -19,7 +19,7 @@ For the parts and how they connect, see [architecture.md](architecture.md). For 
 
 ## Status overview
 
-Updated 2026-10-24.
+Updated 2026-10-25.
 
 | # | Change | Slice | Status | Note |
 |---|---|---|---|---|
@@ -27,7 +27,7 @@ Updated 2026-10-24.
 | 1 | `add-insert-delete-format` | 1 | archived | `openspec/changes/archive/2026-10-24-add-insert-delete-format/`. Follow-ups: see "Follow-ups from change 1". |
 | 2 | `add-obsidian-review-basics` | 1 | archived | `openspec/changes/archive/2026-10-24-add-obsidian-review-basics/`. Windows check not done (see Open checks). |
 | 12 | `add-obsidian-e2e-tests` | 1 | archived | `openspec/changes/archive/2026-10-24-add-obsidian-e2e-tests/`. Test setup: [testing.md](testing.md). Windows run not done (see Open checks). |
-| 3 | `add-claude-suggest-loop` | 1 | planned | |
+| 3 | `add-claude-suggest-loop` | 1 | specified | `openspec/changes/add-claude-suggest-loop/`. Revised after a red-team review on 2026-10-25. |
 | 4 | `add-agent-push` | later | planned | Needs spike S2. |
 | 5 | `add-substitution-and-comments` | later | planned | |
 | 6 | `add-review-panel` | later | planned | |
@@ -73,9 +73,9 @@ The changes are in sequence, in this order: 1, 2, 12, 3. Each one builds on the 
 
 ### 3. `add-claude-suggest-loop`
 
-- **Scope:** hub, bridge, event log, digest, `coedit init`, `coedit claude`, the pull hook (`UserPromptSubmit`) and the Edit/Write guard.
+- **Scope:** hub, bridge with the MCP tools (`get_context`, `read_note`, `suggest_edit`, `get_detail`, `get_digest`), one event log for each machine, digest, `coedit init`, `coedit claude`, `coedit inbox`, `coedit mcp`, the pull hook (`UserPromptSubmit`), and the format follow-ups A, B and D. No note attachment and no guard: the focus is Obsidian's active note, and protection is soft (tool descriptions, optional profile, a deny rule that `coedit init` shows). Machine-local state is in `.coedit/local/<machine>/`. `note-attachment` was dropped in change 3.
 - **Depends on:** 1, 2, 12. The hub runs in the Obsidian plugin.
-- **Capabilities (expected):** `vault-hub`, `event-log`, `agent-tools`, `context-digest`, `note-attachment`, `claude-plugin` (all added); `coedit-cli` (modified: `init`, `claude`, `inbox`, `mcp`); `change-decisions` (modified: decisions are logged).
+- **Capabilities:** `vault-hub`, `event-log`, `agent-tools`, `context-digest`, `claude-plugin` (all added); `coedit-cli` (modified: `init`, `claude`, `inbox`, `mcp`); `change-decisions` (modified: decisions are logged); `markup-format` (modified: wikilink and callout-marker zones, the inline code backslash rule, refusal details).
 
 ### Rules for slice 1
 
@@ -83,6 +83,7 @@ The changes are in sequence, in this order: 1, 2, 12, 3. Each one builds on the 
 - The find text must match the clean text outside pending marks. If it overlaps a pending mark, the tool refuses it.
 - No file mode. If Obsidian is closed, `suggest_edit` returns "Obsidian not connected".
 - Pull only. No channels.
+- Protection is soft. Hard blocks come from the project's Claude Code permissions.
 
 ### Slice 1 end-to-end test
 
@@ -90,7 +91,7 @@ The changes are in sequence, in this order: 1, 2, 12, 3. Each one builds on the 
 2. The marks appear in Obsidian.
 3. The user accepts one and rejects one.
 4. The next prompt gets a digest of the decisions.
-5. The guard blocks a direct Edit.
+5. With the documented project deny rule, a direct Edit is blocked.
 6. A plain `claude` session has no co-editor tools.
 
 ## Later changes
@@ -99,14 +100,14 @@ These are in rough order. They are not grouped into slices yet. Before slice 2 s
 
 | # | Change | Scope (short) | Depends on (expected) | Capabilities (expected) |
 |---|---|---|---|---|
-| 4 | `add-agent-push` | Push on the user's click through a Claude channel. Nudge in the status bar if push is not available. | 3, spike S2 | `claude-plugin`, `vault-hub`, `context-digest` |
-| 5 | `add-substitution-and-comments` | Decisions on `{~~…~>…~~}`, comment threads, the `comment` and `reply` tools. | 3 | `markup-format`, `change-decisions`, `markup-rendering`, `agent-tools` |
-| 6 | `add-review-panel` | The review panel: prev/next, accept all, reject all, filters, cards with threads, footer outbox. | 2 (5 for threads) | `markup-rendering` or a new `review-panel` |
-| 7 | `add-live-tracking` | The per-vault Track Changes toggle: user edits become marks. | 2, spike S1 | `markup-format` (tracking transforms), `markup-rendering` |
-| 8 | `add-file-mode` | Agent suggestions when Obsidian is closed: safe writes, decisions in the log only. | 3 | `agent-tools`, `event-log`, `coedit-cli` |
-| 9 | `add-external-changes` | Edits from other tools: banner, `external` marks, Refresh. | 3 | `event-log`, `context-digest`, `markup-format` |
+| 4 | `add-agent-push` | Push on the user's click through a Claude channel. Nudge in the status bar if push is not available. The push is a short pointer (`N new decisions: call get_digest`), never the decisions. The hub knows the sessions from `hello.session` and only reads `.coedit/local/<machine>/cursors/<session>.json` to count unsent decisions. It uses the reserved `event` message and the `push` feature (design D19 of change 3). | 3, spike S2 | `claude-plugin`, `vault-hub`, `context-digest` |
+| 5 | `add-substitution-and-comments` | Decisions on `{~~…~>…~~}`, comment threads, the `comment` and `reply` tools. The `comment` option of `suggest_edit` (the reason becomes a comment on the change). Comments to the agent as a new digest item type. | 3 | `markup-format`, `change-decisions`, `markup-rendering`, `agent-tools`, `context-digest` |
+| 6 | `add-review-panel` | The review panel: prev/next, accept all, reject all, filters, cards with threads, footer outbox. The status bar list of notes with changes (moved from change 3). `decideMany` (see the follow-ups from change 1). | 2 (5 for threads) | `markup-rendering` or a new `review-panel` |
+| 7 | `add-live-tracking` | The per-vault Track Changes toggle: user edits become marks. CJK word boundaries (`Intl.Segmenter`, follow-up C). An author name in `config.json` for the user's own marks. | 2, spike S1 | `markup-format` (tracking transforms), `markup-rendering` |
+| 8 | `add-file-mode` | Agent suggestions when Obsidian is closed: safe writes, decisions in the log only. Rebase for flows that wait. A second log writer, which appends under the lock `log/events.lock` and reads the last `seq` again under it (design D21 of change 3). | 3 | `agent-tools`, `event-log`, `coedit-cli` |
+| 9 | `add-external-changes` | Edits from other tools: banner, `external` marks, Refresh. Rebase. Detect an undo of a decision and log it. Detect an undo of a suggestion and a mark deleted by hand, and log it as a new event type with the outcome "neither accepted nor rejected". The rule "the latest event for a mark wins" covers every event type that sets a mark's state (design D6 of change 3). A `delete` event for deleted notes. | 3 | `event-log`, `context-digest`, `markup-format` |
 | 10 | `add-editor-toolbars-and-display-modes` | Floating change toolbar, selection bubble, display modes. | 2 | `markup-rendering` |
-| 11 | `add-intent-verbs` | Ask on a selection, the finish-pass verbs with an instruction field, working and seen states. | 3, 6 | `agent-tools`, `context-digest`, `vault-hub` |
+| 11 | `add-intent-verbs` | Ask on a selection, the finish-pass verbs with an instruction field, working and seen states. The `finish` tool. "Ask on a selection" uses the selection of `get_context` in view coordinates (design D5 of change 3). | 3, 6 | `agent-tools`, `context-digest`, `vault-hub` |
 
 ### Follow-ups from change 1
 
@@ -114,15 +115,30 @@ The reviews of `add-insert-delete-format` found these points. They are not in ch
 
 | Follow-up | Take in | State |
 |---|---|---|
-| Error details (match count for `ambiguous`, zone kind for `protected_zone`) and one error-code union per function. | 3 (the agent reads the errors) | open |
+| Error details (match count for `ambiguous`, zone kind for `protected_zone`) and one error-code union per function. | 3 (the agent reads the errors) | in change 3 (task 1.2) |
 | A readonly, discriminated `Mark` type (one shape per kind), and a decision about `serialize` (now it always returns the input text). | 2, before the plugin depends on the types | done in 2 |
 | API consistency: `decide` takes an input object like `suggest`, `Result` keys cannot collide with result fields, `date` gets a calendar check. | 2, before the plugin depends on the API | done in 2 |
-| More protected zones: backslash-escaped backticks, `[[wikilinks]]` (a suggestion can split them), callout markers `> [!note]`. | 3 (the agent writes into notes) | open |
-| Word boundaries for CJK text (now a word is a run of non-whitespace, so one changed character marks the whole run). | 3, decide in its proposal | open |
+| More protected zones: backslash-escaped backticks, `[[wikilinks]]` (a suggestion can split them), callout markers `> [!note]`. | 3 (the agent writes into notes) | in change 3 (task 1.1) |
+| Word boundaries for CJK text (now a word is a run of non-whitespace, so one changed character marks the whole run). | 7 (decided in 3: not in slice 1) | open |
 | `decideMany` for accept all and reject all (one `decide` per mark is O(marks × length)). | 6 | open |
-| `coedit-cli` bundle tests for no arguments and an unknown option, and a check that the tested bundle is not stale. | 3 (it modifies `coedit-cli`) | open |
+| `coedit-cli` bundle tests for no arguments and an unknown option, and a check that the tested bundle is not stale. | 3 (it modifies `coedit-cli`) | in change 3 (task 3.2) |
 | Read Commentator's `{"author":"X"}@@` data as attributes. Today the parser reads it as content, so accepting such a mark puts that text into the note. | 9 (`add-external-changes`) | open |
 | Incremental parse in the Obsidian plugin. A key press in a 1.13 MB note with 3,000 marks takes 12.6 ms (limit 8 ms; design D10 of change 2). Parse only the changed paragraphs, or move the parse off the key press. | 7 (live tracking parses on each key press too) | open |
+
+### Follow-ups from change 3
+
+The explore session and the review of `add-claude-suggest-loop` found these points. They are not in change 3. Each one names the change that takes it. Task 11.1 of change 3 sets the rows of change 1 that change 3 takes to "done in 3" at the end of apply.
+
+| Follow-up | Take in | State |
+|---|---|---|
+| `get_inbox` of the initial plan is replaced by `get_digest`. | — | decided |
+| A warning for notes with open marks (other readers of the `.md` files, for example docs builds, see the raw marks). | 6 | open |
+| Log rotation or a log index, when a real vault shows a need (now the digest reads the whole log; 1 MB is about 10 ms). | later | open |
+| An Obsidian command that starts the co-editor. | later | open |
+| An optional line range for `read_note` (`fromLine`, `toLine`) for big notes. It does not break the tool shape. | later | open |
+| More protected zones: link targets `](...)`, math `$…$` and `$$` blocks, `%%comments%%`, footnote refs `[^1]`, block ids `^abc`, inline HTML. | 9, or a small format change before it | open |
+| Known gaps of the pull digest: Esc while the hook runs loses that digest; a subagent that calls `get_digest` takes the decisions away from the main agent. | 4 (push), or later | open |
+| The digest lists only decisions on marks that the agent suggested. Decisions on marks typed by hand stay in the log. | — | decided |
 
 ### Parallel work
 
@@ -142,12 +158,18 @@ Spikes stay outside OpenSpec in `spikes/`, as throwaway code. They do not block 
 
 | Check | Where |
 |---|---|
-| A plugin with `defaultEnabled: false` stays off at user scope, and `--settings` switches it on for one session (marketplace id and `@inline`). | S2 or change 3 |
+| A plugin with `defaultEnabled: false` stays off at user scope, and `--settings` switches it on for one session (marketplace id and `@inline`). | Answered in change 3 design (facts F1, F2, F6). Closed by task 11.1 after apply. |
 | Which channel flag value works for each load method (`plugin:md-coeditor@md-coeditor`, `plugin:md-coeditor@inline`, `server:…`). | S2 |
-| The esbuild ESM bundle of the MCP SDK runs. Alternative: import only the stdio subpaths, or bundle as CommonJS. | Change 3, first task |
+| The esbuild ESM bundle of the MCP SDK runs. Alternative: import only the stdio subpaths, or bundle as CommonJS. | Answered in change 3 design (facts F1, F2, F6). Closed by task 11.1 after apply. |
 | Everything works on Windows. There is no Windows machine here. Not done yet for change 2 (`add-obsidian-review-basics`, task 11.6 open at archive). The tool to close it: the e2e tests of change 12 (`pnpm test:e2e` on a Windows machine), plus the manual list in [testing.md](testing.md). | Manual, by the user |
 | The e2e tests (`pnpm test:e2e`) run on Windows. Change 12 runs them on macOS and on Linux in Docker (`pnpm test:e2e:docker`). | User's Windows machine, or a later CI change |
 | Structural edits, IME, Vim mode and auto-pair in live tracking. | S1 |
+| Which `Origin` and `Host` headers Node's global `WebSocket` sends. | Change 3, task 4.2 |
+| The JSON shape of `claude plugin list --json`. | Change 3, task 8.3 |
+| `/clear`, `--continue` and `--resume` keep the launcher's session (`COEDIT_SESSION`). | Change 3, manual check 12.5 |
+| `.mcp.json` `env` reaches the MCP server with `CLAUDE_CODE_MCP_ALLOWLIST_ENV=1`. | Change 3, manual check 12.5 |
+| `claude plugin install` switches the plugin on at user scope, or not. | Change 3, manual check 12.3 |
+| Obsidian fires a `rename` event for each note when a folder is renamed. | Change 3, task 10.3 |
 
 ### Closed checks
 
@@ -162,12 +184,11 @@ The planned spec folders and the changes that touch them.
 | Capability | Main spec exists | Changes |
 |---|---|---|
 | `coedit-cli` | yes | 0, 3, 8 |
-| `markup-format` | yes | 1, 2, 5, 7, 9 |
+| `markup-format` | yes | 1, 2, 3, 5, 7, 9 |
 | `change-decisions` | yes | 1, 2, 3, 5 |
 | `markup-rendering` | yes | 2, 5, 6, 7, 10 |
-| `note-attachment` | no | 3 |
 | `vault-hub` | no | 3, 4, 11 |
 | `event-log` | no | 3, 8, 9 |
 | `agent-tools` | no | 3, 5, 8, 11 |
-| `context-digest` | no | 3, 4, 9, 11 |
+| `context-digest` | no | 3, 4, 5, 9, 11 |
 | `claude-plugin` | no | 3, 4 |
